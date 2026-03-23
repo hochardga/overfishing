@@ -1,0 +1,82 @@
+{
+  "meta": {
+    "createdAt": "2026-03-23T19:05:00.000Z",
+    "updatedAt": "2026-03-23T19:05:00.000Z",
+    "version": "1.0",
+    "plaidVersion": "1.0"
+  },
+  "creator": {
+    "name": "Gerg",
+    "expertise": "I've made a lot of tools and apps, but not games",
+    "background": "I'm not a veteran game developer; I'm a builder who likes turning complex ideas into understandable experiences. This project started because browser incrementals feel like the perfect format for a cozy-to-industrial transformation the player can actually feel."
+  },
+  "purpose": {
+    "whoYouHelp": "Incremental game players who want more than rising numbers, especially people drawn to strong concepts, tonal shifts, and browser games worth sharing",
+    "problemYouSolve": "A lot of incremental games hook players with a good premise, then flatten into abstract number growth where progression stops feeling meaningful and the original idea fades into the background",
+    "desiredTransformation": "Players come in expecting a satisfying incremental loop, then realize the game has made them feel complicit in an extraction system whose incentives keep getting darker as they optimize it",
+    "whyYou": "I'm new to games, which means I'm not attached to genre habits that make idle games drift into hollow grind. I can approach it like a product designer building a system people actually want to stay with."
+  },
+  "product": {
+    "name": "Definitely Not Overfishing",
+    "oneLiner": "Definitely Not Overfishing is a browser incremental where cozy fishing grows into an unsettling extraction empire.",
+    "howItWorks": "The player learns a simple cast-and-sell loop, then starts noticing fish stocks drop and prices rise in response to scarcity. Instead of being told to stop, the game keeps rewarding expansion into new waters, more boats, and more systems. The core experience is realizing the smartest move in the game is also the most destructive one.",
+    "keyCapabilities": [
+      "Manual fishing plus passive income sources",
+      "Stock-pressure and scarcity systems across multiple regions",
+      "Boats, holds, fuel, and routing management",
+      "Processing and contracts that turn catch into output",
+      "Bycatch, ecosystem damage, and UI tone-shift systems"
+    ],
+    "platform": "web",
+    "marketDifferentiation": "Unlike incrementals that keep the player doing the same action with bigger multipliers, Definitely Not Overfishing keeps changing the player's job from fisher to operator to executive, so progression feels like moral and mechanical escalation.",
+    "magicMoment": "After unlocking passive gear and additional boats, the player realizes their best move is no longer to cast the line themselves but to orchestrate labor, routes, and output. The identity shift lands all at once."
+  },
+  "audience": {
+    "primaryUser": "Jordan, 34, plays incrementals for mood and surprise as much as for optimization. They're drawn to strong concepts, tonal shifts, and games they can send to friends with 'you need to try this.' They'll stick around if the satire lands through play, not exposition.",
+    "secondaryUsers": [
+      "Optimization-first incremental players who care less about satire but will stay for layered systems, prestige loops, and role progression if the economy is satisfying"
+    ],
+    "currentAlternatives": "Players reach for concept-first incrementals like Cookie Clicker, Universal Paperclips, or A Dark Room when they want a strong hook and escalation, even if the mechanics eventually flatten or the theme stops evolving.",
+    "frustrations": "Players remember the premise and first surprise, but not a complete, well-paced arc that keeps paying off for 60-90 minutes."
+  },
+  "business": {
+    "revenueModel": "free",
+    "initialGoal": "Ship a complete first-session browser prototype, post it publicly, and have at least 50 players finish a run or reach the core dark turn within the first 90 days.",
+    "sixMonthVision": "It becomes a well-known small indie project with strong word of mouth, cited as a browser incremental people recommend for its concept and tone arc.",
+    "constraints": "The biggest constraint is avoiding overbuilding before I know the first-session arc actually works.",
+    "goToMarket": "Focus on getting a playable build live quickly, then use the finished prototype as the thing that earns attention instead of marketing the process."
+  },
+  "feeling": {
+    "brandPersonality": "A charming host with a hidden agenda: warm, inviting, lightly witty, and easy to trust at first, but gradually revealing a colder and more manipulative logic.",
+    "visualMood": "Soft-to-Severe: start with warm coastal surfaces, rounded shapes, airy spacing, and tactile gradients, then gradually tighten corners, compress layouts, and shift toward colder industrial teal and slate surfaces as the system hardens.",
+    "toneOfVoice": "Dry corporate optimism. The game speaks in upbeat operational language that gets more disturbing as the stakes rise. Example success: 'Excellent yield. Regional efficiency is improving.' Example warning: 'Stock pressure remains within acceptable limits.'",
+    "antiPatterns": "Never become sloppy idle mush: no unreadable upgrade walls, no random currencies, and no progression that turns into noise instead of new tensions."
+  },
+  "techStack": {
+    "appType": "web",
+    "frontend": {
+      "choice": "React + TypeScript + Vite",
+      "rationale": "Fast, lightweight, and well-suited to a UI-heavy browser incremental where iteration speed and readable stateful interfaces matter more than full-stack framework features."
+    },
+    "backend": {
+      "choice": "None",
+      "rationale": "The prototype should validate the first-session arc before taking on server complexity. Local-only play is enough for the initial release."
+    },
+    "database": {
+      "choice": "None",
+      "rationale": "No separate database is needed for a local-first browser prototype."
+    },
+    "auth": {
+      "choice": "None",
+      "rationale": "No sign-in keeps the prototype frictionless and easy to share."
+    },
+    "payments": {
+      "choice": "",
+      "rationale": "Payments are intentionally out of scope for the free prototype."
+    }
+  },
+  "tooling": {
+    "codingAgent": "other",
+    "codingAgentName": "Codex"
+  }
+}
