@@ -1,0 +1,29 @@
+import { getBoatDefinition } from "@/lib/economy/boats";
+import { getContractDefinition } from "@/lib/economy/contracts";
+import { getPhaseDefinition } from "@/lib/economy/phases";
+import { getRegionDefinition } from "@/lib/economy/regions";
+import { getUpgradeDefinition } from "@/lib/economy/upgrades";
+import { createGameStore } from "@/lib/simulation/gameStore";
+import { selectStatusRailItems } from "@/lib/simulation/selectors";
+
+describe("game store", () => {
+  it("advances elapsed time and updates shell selectors predictably", () => {
+    const store = createGameStore();
+
+    expect(store.getState().run.elapsedSeconds).toBe(0);
+    expect(selectStatusRailItems(store.getState().run)[2]?.value).toBe("00:00");
+
+    store.getState().tick(75);
+
+    expect(store.getState().run.elapsedSeconds).toBe(75);
+    expect(selectStatusRailItems(store.getState().run)[2]?.value).toBe("01:15");
+  });
+
+  it("loads typed catalog lookups without runtime errors", () => {
+    expect(getPhaseDefinition("quietPier").label).toBe("Quiet Pier");
+    expect(getUpgradeDefinition("betterBait").cost).toBeGreaterThan(0);
+    expect(getRegionDefinition("pierCove").label).toBe("Pier Cove");
+    expect(getBoatDefinition("rustySkiff").fuelCap).toBeGreaterThan(0);
+    expect(getContractDefinition("restaurant").product).toBe("frozenCrate");
+  });
+});
