@@ -3,12 +3,42 @@ import { getContractDefinition } from "@/lib/economy/contracts";
 import { getPhaseDefinition } from "@/lib/economy/phases";
 import { getRegionDefinition } from "@/lib/economy/regions";
 import { getUpgradeDefinition } from "@/lib/economy/upgrades";
+import { loadOrCreateSave, updateSave } from "@/lib/storage/saveAdapter";
 import { createStarterRun } from "@/lib/storage/saveSchema";
 import { createGameStore } from "@/lib/simulation/gameStore";
 import { selectStatusRailItems } from "@/lib/simulation/selectors";
-import { vi } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
+
+function withDiscoverySteps(
+  run: ReturnType<typeof createStarterRun>,
+  discoverySteps: string[],
+) {
+  return {
+    ...run,
+    unlocks: {
+      ...run.unlocks,
+      discoverySteps,
+    },
+  } as typeof run;
+}
+
+function readDiscoverySteps(run: ReturnType<typeof createStarterRun>) {
+  return (
+    (run.unlocks as unknown as { discoverySteps?: string[] }).discoverySteps ??
+    []
+  );
+}
 
 describe("game store", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    vi.useRealTimers();
+  });
+
   it("advances elapsed time and updates shell selectors predictably", () => {
     const store = createGameStore();
 
@@ -69,5 +99,47 @@ describe("game store", () => {
     expect(nextRun.regions.kelpBed.scarcityPriceModifier).toBe(1);
     expect(nextRun.regions.offshoreShelf.catchSpeedModifier).toBe(0.8);
     expect(nextRun.regions.offshoreShelf.scarcityPriceModifier).toBe(1.1);
+  });
+
+  it("preserves earned discovery progress across persistence and skips the compact intro after reset", () => {
+    const earnedDiscoverySteps = [
+      "compactIntroEnabled",
+      "firstCastCompleted",
+      "cashVisible",
+      "nearbyFishVisible",
+    ];
+    const initialStore = createGameStore(createStarterRun());
+
+    initialStore
+      .getState()
+      .replaceRun(
+        withDiscoverySteps(initialStore.getState().run, earnedDiscoverySteps),
+      );
+
+    const reloadedStore = createGameStore();
+    reloadedStore.getState().initialize();
+
+    expect(readDiscoverySteps(reloadedStore.getState().run)).toEqual(
+      earnedDiscoverySteps,
+    );
+
+    updateSave((save) => ({
+      ...save,
+      meta: {
+        ...save.meta,
+        unlockFlags: Array.from(
+          new Set([...save.meta.unlockFlags, "quietPierIntroSeen"]),
+        ),
+      },
+    }));
+
+    reloadedStore.getState().resetRun();
+
+    expect(loadOrCreateSave().meta.unlockFlags).toContain("quietPierIntroSeen");
+    expect(readDiscoverySteps(reloadedStore.getState().run)).not.toContain(
+      "compactIntroEnabled",
+    );
+
+    reloadedStore.getState().stopSimulationLoop();
   });
 });
