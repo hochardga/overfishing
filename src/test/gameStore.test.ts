@@ -8,6 +8,7 @@ import {
   createDefaultMetaProgress,
   createStarterRun,
   expandedShellDiscoverySteps,
+  type MetaProgressState,
   type RunState,
 } from "@/lib/storage/saveSchema";
 import { createGameStore } from "@/lib/simulation/gameStore";
@@ -48,6 +49,15 @@ function createRunForDiscoveryBackfill() {
       discoverySteps: [],
     },
   } satisfies RunState;
+}
+
+function createCarryoverMeta(): MetaProgressState {
+  return {
+    renewals: 2,
+    startingCashBonus: 75,
+    manualCatchBonus: 1,
+    unlockFlags: ["quietPierIntroSeen", "licenseRenewed"],
+  };
 }
 
 describe("game store", () => {
@@ -202,5 +212,24 @@ describe("game store", () => {
     ]);
 
     reloadedStore.getState().stopSimulationLoop();
+  });
+
+  it("keeps provided carryover meta when external replacement and initialization pass run and meta together", () => {
+    const carryoverMeta = createCarryoverMeta();
+    const carryoverRun = createStarterRun(carryoverMeta);
+    const replacementStore = createGameStore();
+
+    replacementStore.getState().replaceRun(carryoverRun, carryoverMeta);
+
+    expect(replacementStore.getState().meta).toEqual(carryoverMeta);
+    expect(loadOrCreateSave().meta).toEqual(carryoverMeta);
+
+    const initializedStore = createGameStore();
+    initializedStore.getState().initialize(carryoverRun, carryoverMeta);
+
+    expect(initializedStore.getState().meta).toEqual(carryoverMeta);
+    expect(loadOrCreateSave().meta).toEqual(carryoverMeta);
+
+    initializedStore.getState().stopSimulationLoop();
   });
 });

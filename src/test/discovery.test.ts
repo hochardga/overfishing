@@ -60,6 +60,7 @@ const quietPierUpgradeCosts = Object.values(upgradeDefinitions)
   .sort((left, right) => left - right);
 
 const cheapestQuietPierUpgradeCost = quietPierUpgradeCosts[0];
+type RunBuilderCase = readonly [string, (run: RunState) => RunState];
 
 describe("syncDiscoveryState", () => {
   it("promotes firstCastCompleted and cashVisible after the first fish and retires the intro flag", () => {
@@ -101,7 +102,7 @@ describe("syncDiscoveryState", () => {
     ]);
   });
 
-  it.each([
+  it.each<RunBuilderCase>([
     [
       "lifetime fish landed reaches eight",
       (run: RunState) => ({
@@ -159,7 +160,7 @@ describe("syncDiscoveryState", () => {
     ]);
   });
 
-  it.each([
+  it.each<RunBuilderCase>([
     [
       "an upgrade is already unlocked",
       (run: RunState) => ({
@@ -174,7 +175,7 @@ describe("syncDiscoveryState", () => {
       "the run has already left the quiet pier",
       (run: RunState) => ({
         ...run,
-        phase: "skiffOperator",
+        phase: "skiffOperator" as const,
       }),
     ],
   ])(
