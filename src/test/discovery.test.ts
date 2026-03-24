@@ -7,24 +7,28 @@ import {
   createDefaultMetaProgress,
   createFreshSave,
   createStarterRun,
+  expandedShellDiscoverySteps,
+  type RunState,
 } from "@/lib/storage/saveSchema";
 import { beforeEach, describe, expect, it } from "vitest";
 
-const expandedShellDiscoverySteps = [
-  "firstCastCompleted",
-  "cashVisible",
-  "nearbyFishVisible",
-  "cooldownVisible",
-  "stockPressureVisible",
-  "shopVisible",
-  "harborShellExpanded",
-];
+function readDiscoverySteps(run: RunState) {
+  return run.unlocks.discoverySteps;
+}
 
-function readDiscoverySteps(run: ReturnType<typeof createStarterRun>) {
-  return (
-    (run.unlocks as unknown as { discoverySteps?: string[] }).discoverySteps ??
-    []
-  );
+function createLegacySavePayload() {
+  const save = createFreshSave();
+  const run = save.run!;
+  const { discoverySteps: _discoverySteps, ...legacyUnlocks } = run.unlocks;
+
+  return {
+    ...save,
+    run: {
+      ...run,
+      cash: 42,
+      unlocks: legacyUnlocks,
+    },
+  };
 }
 
 describe("discovery persistence", () => {
@@ -73,16 +77,31 @@ describe("discovery persistence", () => {
   });
 
   it("normalizes legacy saves without discovery steps into the expanded shell", () => {
-    const save = createFreshSave();
-    delete (save.run?.unlocks as unknown as { discoverySteps?: string[] })
-      .discoverySteps;
-
-    const normalized = normalizeSaveFileWithMetadata(save);
+    const normalized = normalizeSaveFileWithMetadata(createLegacySavePayload());
 
     expect(readDiscoverySteps(normalized.save.run!)).toEqual(
       expandedShellDiscoverySteps,
     );
+    expect(normalized.recovered).toBe(false);
     expect(normalized.save.meta.unlockFlags).toContain("quietPierIntroSeen");
+  });
+
+  it("loads a valid legacy save through the adapter as a migrated save, not recovery", () => {
+    localStorage.setItem(
+      SAVE_STORAGE_KEY,
+      JSON.stringify(createLegacySavePayload()),
+    );
+
+    const result = loadOrCreateSaveResult();
+
+    expect(result.status).toBe("loaded");
+    expect(result.message).toBeUndefined();
+    expect(result.save.run).not.toBeNull();
+    expect(result.save.run?.cash).toBe(42);
+    expect(readDiscoverySteps(result.save.run!)).toEqual(
+      expandedShellDiscoverySteps,
+    );
+    expect(result.save.meta.unlockFlags).toContain("quietPierIntroSeen");
   });
 
   it("recovers malformed saves into an expanded-shell run with the intro retired", () => {

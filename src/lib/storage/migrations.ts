@@ -90,7 +90,7 @@ export function normalizeSaveFileWithMetadata(
     if (hasMissingDiscoverySteps(value)) {
       return {
         save: withRecoveredDiscoveryState(parsed.data),
-        recovered: true,
+        recovered: false,
       };
     }
 
