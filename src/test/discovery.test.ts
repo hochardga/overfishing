@@ -19,7 +19,9 @@ function readDiscoverySteps(run: RunState) {
 function createLegacySavePayload() {
   const save = createFreshSave();
   const run = save.run!;
-  const { discoverySteps: _discoverySteps, ...legacyUnlocks } = run.unlocks;
+  const legacyUnlocks = Object.fromEntries(
+    Object.entries(run.unlocks).filter(([key]) => key !== "discoverySteps"),
+  );
 
   return {
     ...save,
