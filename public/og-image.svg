@@ -1,0 +1,30 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#FEF9EF"/>
+  <rect x="58" y="58" width="700" height="514" rx="34" fill="#F3EDE0"/>
+  <rect x="786" y="58" width="356" height="514" rx="34" fill="#0F222D"/>
+  <rect x="92" y="92" width="230" height="42" rx="21" fill="#FFFFFF"/>
+  <text x="117" y="119" fill="#416568" font-family="Arial, sans-serif" font-size="18" letter-spacing="2">BROWSER PROTOTYPE</text>
+  <text x="92" y="186" fill="#2F281F" font-family="Arial, sans-serif" font-size="54" font-weight="700">
+    <tspan x="92" dy="0">A browser incremental</tspan>
+    <tspan x="92" dy="64">that turns cozy fishing</tspan>
+    <tspan x="92" dy="64">into industrial extraction.</tspan>
+  </text>
+  <text x="92" y="430" fill="#625F53" font-family="Arial, sans-serif" font-size="28">
+    <tspan x="92" dy="0">Catch fish. Build fleets.</tspan>
+    <tspan x="92" dy="40">Normalize collapse.</tspan>
+  </text>
+  <rect x="92" y="478" width="230" height="58" rx="29" fill="#8A502F"/>
+  <text x="136" y="514" fill="#FEF9EF" font-family="Arial, sans-serif" font-size="28" font-weight="700">Play in browser</text>
+  <text x="826" y="122" fill="#2DDBDE" font-family="Arial, sans-serif" font-size="18" letter-spacing="2">WHY IT LANDS</text>
+  <text x="826" y="185" fill="#FEF9EF" font-family="Arial, sans-serif" font-size="34" font-weight="700">
+    <tspan x="826" dy="0">The smartest move</tspan>
+    <tspan x="826" dy="42">keeps getting worse</tspan>
+    <tspan x="826" dy="42">for the water.</tspan>
+  </text>
+  <rect x="826" y="296" width="276" height="104" rx="24" fill="#FFFFFF" fill-opacity="0.08"/>
+  <text x="850" y="336" fill="#2DDBDE" font-family="Arial, sans-serif" font-size="18" letter-spacing="2">MINUTE 3</text>
+  <text x="850" y="372" fill="#FEF9EF" font-family="Arial, sans-serif" font-size="24">Warm dockside loop.</text>
+  <rect x="826" y="424" width="276" height="104" rx="24" fill="#FFFFFF" fill-opacity="0.08"/>
+  <text x="850" y="464" fill="#2DDBDE" font-family="Arial, sans-serif" font-size="18" letter-spacing="2">MINUTE 70</text>
+  <text x="850" y="500" fill="#FEF9EF" font-family="Arial, sans-serif" font-size="24">Routes, bottlenecks, depletion.</text>
+</svg>

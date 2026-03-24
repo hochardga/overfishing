@@ -4,8 +4,8 @@ import {
   type SaveFile,
 } from "@/lib/storage/saveSchema";
 
-const LICENSE_RENEWAL_REVENUE_TARGET = 6_000;
-const LICENSE_RENEWAL_FISH_TARGET = 1_000;
+const LICENSE_RENEWAL_REVENUE_TARGET = 6_800;
+const LICENSE_RENEWAL_FISH_TARGET = 1_120;
 const LICENSE_RENEWAL_OCEAN_HEALTH_THRESHOLD = 70;
 
 export function getLicenseRenewalCarryover(run: RunState) {

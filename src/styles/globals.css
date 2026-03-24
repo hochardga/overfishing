@@ -11,6 +11,7 @@
     font-family: var(--font-body);
     line-height: 1.5;
     font-weight: 400;
+    --app-ui-scale: 1;
   }
 
   * {
@@ -18,7 +19,13 @@
   }
 
   html {
+    font-size: calc(100% * var(--app-ui-scale));
     scroll-behavior: smooth;
+    text-size-adjust: 100%;
+  }
+
+  html[data-ui-scale="large"] {
+    --app-ui-scale: 1.125;
   }
 
   body {
@@ -60,7 +67,27 @@
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
+    outline: 3px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
+  img,
+  svg,
+  video {
+    display: block;
+    max-width: 100%;
+  }
+
+  html[data-reduced-motion="true"] {
+    scroll-behavior: auto;
+  }
+
+  html[data-reduced-motion="true"] *,
+  html[data-reduced-motion="true"] *::before,
+  html[data-reduced-motion="true"] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }

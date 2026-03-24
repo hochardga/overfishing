@@ -19,6 +19,7 @@ import { RegionsPanel } from "@/features/regions/RegionsPanel";
 import { LicenseRenewalModal } from "@/features/prestige/LicenseRenewalModal";
 import { UpgradeShop } from "@/features/upgrades/UpgradeShop";
 import { useGameStore } from "@/lib/simulation/gameStore";
+import { hasStoredSave } from "@/lib/storage/saveAdapter";
 import {
   selectActivePhaseUnlockModalState,
   selectAlertBannerState,
@@ -28,7 +29,14 @@ import {
 } from "@/lib/simulation/selectors";
 
 export default function PlayPage() {
+  const hydrated = useGameStore((state) => state.hydrated);
   const initialize = useGameStore((state) => state.initialize);
+  const dismissRecoveryMessage = useGameStore(
+    (state) => state.dismissRecoveryMessage,
+  );
+  const recoveryMessage = useGameStore((state) => state.recoveryMessage);
+  const resetRun = useGameStore((state) => state.resetRun);
+  const startSimulationLoop = useGameStore((state) => state.startSimulationLoop);
   const stopSimulationLoop = useGameStore((state) => state.stopSimulationLoop);
   const run = useGameStore((state) => state.run);
   const activePhaseUnlock = selectActivePhaseUnlockModalState(run);
@@ -38,22 +46,79 @@ export default function PlayPage() {
   const isFleetOps = run.unlocks.phasesSeen.includes("fleetOps");
   const hasProcessing = run.unlocks.phasesSeen.includes("processingContracts");
   const hasRegions = run.unlocks.phasesSeen.includes("regionalExtraction");
+  const shouldRestoreFromSave = !hydrated && hasStoredSave();
   const [dismissedRenewalAtRevenue, setDismissedRenewalAtRevenue] = useState<
     number | null
   >(null);
   const showRenewalModal =
     licenseRenewal !== null &&
     dismissedRenewalAtRevenue !== run.lifetimeRevenue;
+  const showOnboardingOverlay =
+    hydrated &&
+    !recoveryMessage &&
+    run.phase === "quietPier" &&
+    run.lifetimeFishLanded <= 0;
 
   useEffect(() => {
-    initialize();
+    if (hydrated) {
+      startSimulationLoop();
+      return;
+    }
+
+    if (!hasStoredSave()) {
+      initialize();
+      return;
+    }
+
+    const timeoutId = globalThis.setTimeout(() => {
+      initialize();
+    }, 0);
+
     return () => {
-      stopSimulationLoop();
+      globalThis.clearTimeout(timeoutId);
     };
-  }, [initialize, stopSimulationLoop]);
+  }, [hydrated, initialize, startSimulationLoop]);
+
+  useEffect(() => () => {
+    stopSimulationLoop();
+  }, [stopSimulationLoop]);
+
   return (
     <>
       <GameShell
+        errorActionLabel="Start fresh run"
+        errorBody={recoveryMessage ?? undefined}
+        onErrorAction={() => {
+          resetRun();
+          dismissRecoveryMessage();
+        }}
+        overlay={
+          showOnboardingOverlay ? (
+            <Card
+              className="space-y-3"
+              data-testid="play-shell-onboarding"
+            >
+              <div className="inline-flex w-fit rounded-full bg-surface-raised px-4 py-2 text-xs font-medium uppercase tracking-[0.16em] text-secondary">
+                First cast guidance
+              </div>
+              <h2 className="font-heading text-3xl text-text">
+                Cast a line and see what&apos;s biting.
+              </h2>
+              <p className="text-sm text-text-muted">
+                Start with a few manual casts to learn the cooldown rhythm, build
+                a little cash, and watch Pier Cove react before the dock gets
+                busier.
+              </p>
+            </Card>
+          ) : null
+        }
+        screenState={
+          shouldRestoreFromSave
+            ? "loading"
+            : recoveryMessage
+              ? "error"
+              : "ready"
+        }
         tone={run.uiTone}
         leftColumn={
           <>
@@ -110,7 +175,7 @@ export default function PlayPage() {
               <GearPanel run={run} />
             ) : null}
             {hasProcessing ? <ProcessingPanel run={run} /> : null}
-            {hasRegions ? <RegionsPanel run={run} /> : null}
+            {hasProcessing || hasRegions ? <RegionsPanel run={run} /> : null}
           </>
         }
         rightColumn={
@@ -129,7 +194,7 @@ export default function PlayPage() {
               </p>
             </Card>
             <UpgradeShop run={run} />
-            {hasProcessing ? <ContractBoard run={run} /> : null}
+            {isFleetOps || hasProcessing ? <ContractBoard run={run} /> : null}
             <Card className="space-y-3">
               <h2 className="font-heading text-2xl">Reading the rail</h2>
               <p className="text-sm text-text-muted">

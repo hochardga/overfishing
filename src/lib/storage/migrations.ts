@@ -9,6 +9,11 @@ import {
 
 export const LATEST_SAVE_VERSION = 1;
 
+export type NormalizedSaveFileResult = {
+  save: SaveFile;
+  recovered: boolean;
+};
+
 function recoverSettings(value: unknown): SettingsState | null {
   if (!value || typeof value !== "object" || !("settings" in value)) {
     return null;
@@ -20,16 +25,28 @@ function recoverSettings(value: unknown): SettingsState | null {
   return parsed.success ? parsed.data : null;
 }
 
-export function normalizeSaveFile(value: unknown): SaveFile {
+export function normalizeSaveFileWithMetadata(
+  value: unknown,
+): NormalizedSaveFileResult {
   const parsed = saveFileSchema.safeParse(value);
 
   if (parsed.success) {
-    return parsed.data;
+    return {
+      save: parsed.data,
+      recovered: false,
+    };
   }
 
   const recoveredSettings = recoverSettings(value) ?? createDefaultSettings();
 
-  return createFreshSave({
-    settings: recoveredSettings,
-  });
+  return {
+    save: createFreshSave({
+      settings: recoveredSettings,
+    }),
+    recovered: true,
+  };
+}
+
+export function normalizeSaveFile(value: unknown): SaveFile {
+  return normalizeSaveFileWithMetadata(value).save;
 }

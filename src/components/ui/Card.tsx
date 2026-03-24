@@ -22,7 +22,7 @@ export function Card({
   return (
     <div
       className={clsx(
-        "rounded-2xl p-5",
+        "min-w-0 rounded-2xl p-5",
         toneClasses[tone],
         className,
       )}

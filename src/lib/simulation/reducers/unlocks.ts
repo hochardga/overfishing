@@ -40,8 +40,8 @@ export const phaseUnlockRules: PhaseUnlockRule[] = [
   },
   {
     phaseId: "regionalExtraction",
-    requiredLifetimeFishLanded: 850,
-    requiredLifetimeRevenue: 5_200,
+    requiredLifetimeFishLanded: 950,
+    requiredLifetimeRevenue: 5_800,
     requiredUpgradeIds: ["processingShed", "flashFreezer"],
     unlockTabs: ["fleet", "processing", "regions"],
   },

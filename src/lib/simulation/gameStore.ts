@@ -29,6 +29,7 @@ import {
   syncProcessingState,
 } from "@/lib/simulation/reducers/processing";
 import {
+  loadOrCreateSaveResult,
   loadOrCreateSave,
   renewLicenseSave,
   updateSave,
@@ -68,9 +69,12 @@ import { advanceRunBySeconds } from "@/lib/simulation/tickEngine";
 
 export type GameStoreState = {
   run: RunState;
+  hydrated: boolean;
+  recoveryMessage: string | null;
   initialize: (run?: RunState | null) => void;
   replaceRun: (run: RunState) => void;
   resetRun: () => void;
+  dismissRecoveryMessage: () => void;
   tick: (elapsedSeconds: number) => void;
   startSimulationLoop: () => void;
   stopSimulationLoop: () => void;
@@ -102,7 +106,6 @@ export type GameStoreState = {
 
 const createState = (initialRun: RunState = createStarterRun()) =>
   createStore<GameStoreState>()((set, get) => {
-    let hasHydrated = false;
     let simulationLoopId: ReturnType<typeof globalThis.setInterval> | null =
       null;
     let simulationAnchorMs: number | null = null;
@@ -179,23 +182,36 @@ const createState = (initialRun: RunState = createStarterRun()) =>
 
     return {
       run: initialRun,
+      hydrated: false,
+      recoveryMessage: null,
       initialize: (run) => {
         if (run) {
-          hasHydrated = true;
           simulationAnchorMs = null;
           const hydratedRun = normalizeRun(run);
-          set({ run: hydratedRun });
+          set({
+            run: hydratedRun,
+            hydrated: true,
+            recoveryMessage: null,
+          });
           persistRun(hydratedRun);
           startSimulationLoop();
           return;
         }
 
-        if (!hasHydrated) {
-          const save = loadOrCreateSave();
-          const fallbackRun = normalizeRun(save.run ?? createStarterRun(save.meta));
-          hasHydrated = true;
+        if (!get().hydrated) {
+          const loadResult = loadOrCreateSaveResult();
+          const fallbackRun = normalizeRun(
+            loadResult.save.run ?? createStarterRun(loadResult.save.meta),
+          );
           simulationAnchorMs = null;
-          set({ run: fallbackRun });
+          set({
+            run: fallbackRun,
+            hydrated: true,
+            recoveryMessage:
+              loadResult.status === "recovered"
+                ? loadResult.message ?? null
+                : null,
+          });
           persistRun(fallbackRun);
         }
 
@@ -203,15 +219,26 @@ const createState = (initialRun: RunState = createStarterRun()) =>
       },
       replaceRun: (run) => {
         const normalizedRun = normalizeRun(run);
-        set({ run: normalizedRun });
+        set({
+          run: normalizedRun,
+          hydrated: true,
+          recoveryMessage: null,
+        });
         persistRun(normalizedRun);
       },
       resetRun: () => {
         const save = loadOrCreateSave();
         const nextRun = createStarterRun(save.meta);
         simulationAnchorMs = null;
-        set({ run: nextRun });
+        set({
+          run: nextRun,
+          hydrated: true,
+          recoveryMessage: null,
+        });
         persistRun(nextRun);
+      },
+      dismissRecoveryMessage: () => {
+        set({ recoveryMessage: null });
       },
       tick: (elapsedSeconds) => {
         const nextRun = advanceRunBySeconds(get().run, elapsedSeconds);
@@ -426,6 +453,7 @@ const createState = (initialRun: RunState = createStarterRun()) =>
           run: nextRun,
         });
         persistRun(nextRun);
+        globalThis.dispatchEvent?.(new Event("overfishing:license-renewed"));
 
         return nextRun;
       },

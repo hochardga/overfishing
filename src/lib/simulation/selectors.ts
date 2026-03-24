@@ -451,9 +451,11 @@ export type ContractCardState = {
 };
 
 export type ContractBoardState = {
+  kind: "empty" | "error" | "ready";
   title: string;
   intro: string;
-  cards: ContractCardState[];
+  detail?: string;
+  cards?: ContractCardState[];
 };
 
 export type RegionSummaryState = {
@@ -466,11 +468,13 @@ export type RegionSummaryState = {
 };
 
 export type RegionsPanelState = {
+  kind: "empty" | "error" | "ready";
   title: string;
   intro: string;
-  trustValue: string;
-  oceanHealthValue: string;
-  items: RegionSummaryState[];
+  detail?: string;
+  trustValue?: string;
+  oceanHealthValue?: string;
+  items?: RegionSummaryState[];
 };
 
 export type LicenseRenewalState = {
@@ -781,6 +785,20 @@ export function selectProcessingPanelState(run: RunState): ProcessingPanelState 
 }
 
 export function selectContractBoardState(run: RunState): ContractBoardState {
+  const hasContractsPhase =
+    run.unlocks.phasesSeen.includes("processingContracts") ||
+    run.phase === "processingContracts" ||
+    run.phase === "regionalExtraction";
+
+  if (!hasContractsPhase) {
+    return {
+      kind: "empty",
+      title: "Contract board",
+      intro: "No active contracts yet.",
+      detail: "Contracts unlock after processing is online.",
+    };
+  }
+
   const syncedRun = syncContractsState(run);
   const cards = Object.values(syncedRun.contracts)
     .sort((left, right) => left.id.localeCompare(right.id))
@@ -810,7 +828,17 @@ export function selectContractBoardState(run: RunState): ContractBoardState {
       canClaim: contract.status === "completed",
     }));
 
+  if (cards.length === 0) {
+    return {
+      kind: "error",
+      title: "Contract board",
+      intro: "The board failed to restore its live orders.",
+      detail: "Try starting a fresh run if contract offers stay offline.",
+    };
+  }
+
   return {
+    kind: "ready",
     title: "Contract board",
     intro: "Timed commitments turn processed goods into short-term pressure.",
     cards,
@@ -830,6 +858,19 @@ function getTravelText(regionId: RegionId) {
 }
 
 export function selectRegionsPanelState(run: RunState): RegionsPanelState {
+  const hasRegionsPhase =
+    run.unlocks.phasesSeen.includes("regionalExtraction") ||
+    run.phase === "regionalExtraction";
+
+  if (!hasRegionsPhase) {
+    return {
+      kind: "empty",
+      title: "Regional oversight",
+      intro: "No regional oversight yet.",
+      detail: "Regional oversight unlocks once your fleet expands offshore.",
+    };
+  }
+
   const items = Object.values(run.regions)
     .filter((region) => region.unlocked)
     .sort((left, right) => left.id.localeCompare(right.id))
@@ -842,7 +883,17 @@ export function selectRegionsPanelState(run: RunState): RegionsPanelState {
       consequenceText: `${Math.round(region.bycatchRate * 100)}% bycatch, ${Math.round(region.habitatDamage * 100)}% habitat damage`,
     }));
 
+  if (items.length === 0) {
+    return {
+      kind: "error",
+      title: "Regional oversight",
+      intro: "Regional telemetry is stale.",
+      detail: "Reset the run if the offshore report does not come back.",
+    };
+  }
+
   return {
+    kind: "ready",
     title: "Regional oversight",
     intro: "Depletion, bycatch, trust, and value now sit in the same view.",
     trustValue: `${Math.round(run.trust)} trust`,
