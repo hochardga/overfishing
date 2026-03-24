@@ -4,10 +4,15 @@ import { getPhaseDefinition } from "@/lib/economy/phases";
 import { getRegionDefinition } from "@/lib/economy/regions";
 import { getUpgradeDefinition } from "@/lib/economy/upgrades";
 import { loadOrCreateSave, updateSave } from "@/lib/storage/saveAdapter";
-import { createStarterRun } from "@/lib/storage/saveSchema";
+import {
+  createDefaultMetaProgress,
+  createStarterRun,
+  expandedShellDiscoverySteps,
+  type RunState,
+} from "@/lib/storage/saveSchema";
 import { createGameStore } from "@/lib/simulation/gameStore";
 import { selectStatusRailItems } from "@/lib/simulation/selectors";
-import { afterEach, beforeEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function withDiscoverySteps(
   run: ReturnType<typeof createStarterRun>,
@@ -27,6 +32,22 @@ function readDiscoverySteps(run: ReturnType<typeof createStarterRun>) {
     (run.unlocks as unknown as { discoverySteps?: string[] }).discoverySteps ??
     []
   );
+}
+
+function createRunForDiscoveryBackfill() {
+  const run = createStarterRun(createDefaultMetaProgress());
+
+  return {
+    ...run,
+    lifetimeFishLanded: 8,
+    cash: 35,
+    phase: "skiffOperator",
+    unlocks: {
+      ...run.unlocks,
+      upgrades: ["betterBait"],
+      discoverySteps: [],
+    },
+  } satisfies RunState;
 }
 
 describe("game store", () => {
@@ -139,6 +160,46 @@ describe("game store", () => {
     expect(readDiscoverySteps(reloadedStore.getState().run)).not.toContain(
       "compactIntroEnabled",
     );
+
+    reloadedStore.getState().stopSimulationLoop();
+  });
+
+  it("normalizes and persists discovery backfill through store-owned run updates", () => {
+    const store = createGameStore(createRunForDiscoveryBackfill());
+
+    store.getState().tick(0);
+
+    expect(readDiscoverySteps(store.getState().run)).toEqual(
+      expandedShellDiscoverySteps,
+    );
+    expect(store.getState().meta.unlockFlags).toContain("quietPierIntroSeen");
+    expect(loadOrCreateSave().run?.unlocks.discoverySteps).toEqual(
+      expandedShellDiscoverySteps,
+    );
+    expect(loadOrCreateSave().meta.unlockFlags).toContain("quietPierIntroSeen");
+  });
+
+  it("normalizes discovery state during replaceRun and initialize without duplicating retired intro state", () => {
+    const initialStore = createGameStore(createStarterRun());
+
+    initialStore.getState().replaceRun(createRunForDiscoveryBackfill());
+
+    expect(readDiscoverySteps(initialStore.getState().run)).toEqual(
+      expandedShellDiscoverySteps,
+    );
+    expect(initialStore.getState().meta.unlockFlags).toEqual([
+      "quietPierIntroSeen",
+    ]);
+
+    const reloadedStore = createGameStore();
+    reloadedStore.getState().initialize();
+
+    expect(readDiscoverySteps(reloadedStore.getState().run)).toEqual(
+      expandedShellDiscoverySteps,
+    );
+    expect(reloadedStore.getState().meta.unlockFlags).toEqual([
+      "quietPierIntroSeen",
+    ]);
 
     reloadedStore.getState().stopSimulationLoop();
   });

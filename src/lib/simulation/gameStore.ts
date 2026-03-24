@@ -35,7 +35,9 @@ import {
   updateSave,
 } from "@/lib/storage/saveAdapter";
 import {
+  createDefaultMetaProgress,
   createStarterRun,
+  type MetaProgressState,
   type PhaseId,
   type RegionId,
   type RunState,
@@ -65,10 +67,12 @@ import {
   applyUnlockChecks,
   dismissPhaseUnlockModal as dismissPhaseUnlockModalReducer,
 } from "@/lib/simulation/reducers/unlocks";
+import { syncDiscoveryState } from "@/lib/simulation/reducers/discovery";
 import { advanceRunBySeconds } from "@/lib/simulation/tickEngine";
 
 export type GameStoreState = {
   run: RunState;
+  meta: MetaProgressState;
   hydrated: boolean;
   recoveryMessage: string | null;
   initialize: (run?: RunState | null) => void;
@@ -104,31 +108,81 @@ export type GameStoreState = {
   dismissPhaseUnlockModal: (phaseId: PhaseId) => RunState;
 };
 
-const createState = (initialRun: RunState = createStarterRun()) =>
+type ApplyGameplayStateOptions = {
+  hydrated?: boolean;
+  persist?: boolean;
+  recoveryMessage?: string | null;
+};
+
+const createState = (
+  initialRun: RunState = createStarterRun(),
+  initialMeta: MetaProgressState = createDefaultMetaProgress(),
+) =>
   createStore<GameStoreState>()((set, get) => {
     let simulationLoopId: ReturnType<typeof globalThis.setInterval> | null =
       null;
     let simulationAnchorMs: number | null = null;
 
-    const persistRun = (run: RunState) => {
+    const persistGameplayState = ({
+      run,
+      meta,
+    }: {
+      run: RunState;
+      meta: MetaProgressState;
+    }) => {
       updateSave((save) => ({
         ...save,
         run,
+        meta,
       }));
     };
 
-    const normalizeRun = (run: RunState) =>
-      syncFleetState(
-        syncProcessingState(
-          syncContractsState(
-            syncFacilitiesState(
-              syncPassiveGearState(
-                syncStorageState(syncSkiffState(applyUnlockChecks(run))),
+    const normalizeGameplayState = (
+      run: RunState,
+      meta: MetaProgressState,
+    ) => {
+      const afterUnlocks = applyUnlockChecks(run);
+      const normalized = syncDiscoveryState(afterUnlocks, meta);
+
+      return {
+        run: syncFleetState(
+          syncProcessingState(
+            syncContractsState(
+              syncFacilitiesState(
+                syncPassiveGearState(
+                  syncStorageState(syncSkiffState(normalized.run)),
+                ),
               ),
             ),
           ),
         ),
-      );
+        meta: normalized.meta,
+      };
+    };
+
+    const applyGameplayState = (
+      run: RunState,
+      meta: MetaProgressState,
+      options: ApplyGameplayStateOptions = {},
+    ) => {
+      const normalizedState = normalizeGameplayState(run, meta);
+
+      set({
+        run: normalizedState.run,
+        meta: normalizedState.meta,
+        hydrated: options.hydrated ?? get().hydrated,
+        recoveryMessage:
+          options.recoveryMessage === undefined
+            ? get().recoveryMessage
+            : options.recoveryMessage,
+      });
+
+      if (options.persist !== false) {
+        persistGameplayState(normalizedState);
+      }
+
+      return normalizedState;
+    };
 
     const syncRunToTime = (nowMs: number) => {
       if (simulationAnchorMs === null) {
@@ -142,19 +196,22 @@ const createState = (initialRun: RunState = createStarterRun()) =>
       const deltaSeconds = targetElapsedSeconds - get().run.elapsedSeconds;
 
       if (deltaSeconds <= 0) {
-        return get().run;
+        return {
+          run: get().run,
+          meta: get().meta,
+        };
       }
 
       const nextRun = advanceRunBySeconds(get().run, deltaSeconds);
-      set({ run: nextRun });
-
-      return nextRun;
+      return applyGameplayState(nextRun, get().meta, {
+        persist: false,
+      });
     };
 
     const persistLiveRun = () => {
       const nowMs = Date.now();
-      const syncedRun = syncRunToTime(nowMs);
-      persistRun(syncedRun);
+      const syncedState = syncRunToTime(nowMs);
+      persistGameplayState(syncedState);
     };
 
     const stopSimulationLoop = () => {
@@ -182,328 +239,255 @@ const createState = (initialRun: RunState = createStarterRun()) =>
 
     return {
       run: initialRun,
+      meta: initialMeta,
       hydrated: false,
       recoveryMessage: null,
       initialize: (run) => {
         if (run) {
           simulationAnchorMs = null;
-          const hydratedRun = normalizeRun(run);
-          set({
-            run: hydratedRun,
+          applyGameplayState(run, get().meta, {
             hydrated: true,
             recoveryMessage: null,
           });
-          persistRun(hydratedRun);
           startSimulationLoop();
           return;
         }
 
         if (!get().hydrated) {
           const loadResult = loadOrCreateSaveResult();
-          const fallbackRun = normalizeRun(
-            loadResult.save.run ?? createStarterRun(loadResult.save.meta),
-          );
+          const fallbackMeta = loadResult.save.meta;
+          const fallbackRun =
+            loadResult.save.run ?? createStarterRun(fallbackMeta);
           simulationAnchorMs = null;
-          set({
-            run: fallbackRun,
+          applyGameplayState(fallbackRun, fallbackMeta, {
             hydrated: true,
             recoveryMessage:
               loadResult.status === "recovered"
                 ? loadResult.message ?? null
                 : null,
           });
-          persistRun(fallbackRun);
         }
 
         startSimulationLoop();
       },
       replaceRun: (run) => {
-        const normalizedRun = normalizeRun(run);
-        set({
-          run: normalizedRun,
+        applyGameplayState(run, get().meta, {
           hydrated: true,
           recoveryMessage: null,
         });
-        persistRun(normalizedRun);
       },
       resetRun: () => {
         const save = loadOrCreateSave();
-        const nextRun = createStarterRun(save.meta);
+        const nextMeta = save.meta;
+        const nextRun = createStarterRun(nextMeta);
         simulationAnchorMs = null;
-        set({
-          run: nextRun,
+        applyGameplayState(nextRun, nextMeta, {
           hydrated: true,
           recoveryMessage: null,
         });
-        persistRun(nextRun);
       },
       dismissRecoveryMessage: () => {
         set({ recoveryMessage: null });
       },
       tick: (elapsedSeconds) => {
         const nextRun = advanceRunBySeconds(get().run, elapsedSeconds);
-        set({ run: nextRun });
-        persistRun(nextRun);
+        applyGameplayState(nextRun, get().meta);
       },
       startSimulationLoop,
       stopSimulationLoop,
       castManual: (nowMs) => {
-        const syncedRun = syncRunToTime(nowMs);
-        const result = performManualCast(syncedRun, {
+        const syncedState = syncRunToTime(nowMs);
+        const result = performManualCast(syncedState.run, {
           nowMs,
         });
-        const normalizedRun = normalizeRun(result.run);
-
-        set({
-          run: normalizedRun,
-        });
-        persistRun(normalizedRun);
+        const normalizedState = applyGameplayState(result.run, syncedState.meta);
 
         return {
           ...result,
-          run: normalizedRun,
+          run: normalizedState.run,
         };
       },
       purchaseUpgrade: (upgradeId) => {
         const previousRun = get().run;
         const result = purchaseUpgradeReducer(previousRun, upgradeId);
-        const normalizedRun = normalizeRun(result.run);
-
-        set({
-          run: normalizedRun,
-        });
-        persistRun(normalizedRun);
+        const normalizedState = applyGameplayState(result.run, get().meta);
 
         return {
           ...result,
-          run: normalizedRun,
-          newCashBalance: normalizedRun.cash,
+          run: normalizedState.run,
+          newCashBalance: normalizedState.run.cash,
           unlockedPhase:
-            normalizedRun.phase !== previousRun.phase
-              ? normalizedRun.phase
+            normalizedState.run.phase !== previousRun.phase
+              ? normalizedState.run.phase
               : undefined,
         };
       },
       startSkiffTrip: (boatId, regionId) => {
-        const syncedRun = syncRunToTime(Date.now());
-        const result = startSkiffTripReducer(syncedRun, {
+        const syncedState = syncRunToTime(Date.now());
+        const result = startSkiffTripReducer(syncedState.run, {
           boatId,
           regionId,
         });
-        const normalizedRun = normalizeRun(result.run);
-
-        set({
-          run: normalizedRun,
-        });
-        persistRun(normalizedRun);
+        const normalizedState = applyGameplayState(result.run, syncedState.meta);
 
         return {
           ...result,
-          run: normalizedRun,
+          run: normalizedState.run,
         };
       },
       refuelSkiff: (boatId) => {
-        const syncedRun = syncRunToTime(Date.now());
-        const result = refuelSkiffReducer(syncedRun, {
+        const syncedState = syncRunToTime(Date.now());
+        const result = refuelSkiffReducer(syncedState.run, {
           boatId,
         });
-        const normalizedRun = normalizeRun(result.run);
-
-        set({
-          run: normalizedRun,
-        });
-        persistRun(normalizedRun);
+        const normalizedState = applyGameplayState(result.run, syncedState.meta);
 
         return {
           ...result,
-          run: normalizedRun,
+          run: normalizedState.run,
         };
       },
       refuelBoat: (boatId) => {
-        const syncedRun = syncRunToTime(Date.now());
-        const result = refuelBoatReducer(syncedRun, {
+        const syncedState = syncRunToTime(Date.now());
+        const result = refuelBoatReducer(syncedState.run, {
           boatId,
         });
-        const normalizedRun = normalizeRun(result.run);
-
-        set({
-          run: normalizedRun,
-        });
-        persistRun(normalizedRun);
+        const normalizedState = applyGameplayState(result.run, syncedState.meta);
 
         return {
           ...result,
-          run: normalizedRun,
+          run: normalizedState.run,
         };
       },
       assignBoatRoute: (boatId, regionId, automated, crewAssigned) => {
-        const syncedRun = syncRunToTime(Date.now());
-        const result = assignBoatRouteReducer(syncedRun, {
+        const syncedState = syncRunToTime(Date.now());
+        const result = assignBoatRouteReducer(syncedState.run, {
           boatId,
           regionId,
           automated,
           crewAssigned,
         });
-        const normalizedRun = normalizeRun(result.run);
-
-        set({
-          run: normalizedRun,
-        });
-        persistRun(normalizedRun);
+        const normalizedState = applyGameplayState(result.run, syncedState.meta);
 
         return {
           ...result,
-          run: normalizedRun,
+          run: normalizedState.run,
         };
       },
       repairBoat: (boatId) => {
-        const syncedRun = syncRunToTime(Date.now());
-        const result = repairBoatReducer(syncedRun, {
+        const syncedState = syncRunToTime(Date.now());
+        const result = repairBoatReducer(syncedState.run, {
           boatId,
         });
-        const normalizedRun = normalizeRun(result.run);
-
-        set({
-          run: normalizedRun,
-        });
-        persistRun(normalizedRun);
+        const normalizedState = applyGameplayState(result.run, syncedState.meta);
 
         return {
           ...result,
-          run: normalizedRun,
+          run: normalizedState.run,
         };
       },
       setProcessingQueue: (queueId, active, product) => {
-        const syncedRun = syncRunToTime(Date.now());
-        const result = setProcessingQueueReducer(syncedRun, {
+        const syncedState = syncRunToTime(Date.now());
+        const result = setProcessingQueueReducer(syncedState.run, {
           queueId,
           active,
           product,
         });
-        const normalizedRun = normalizeRun(result.run);
-
-        set({
-          run: normalizedRun,
-        });
-        persistRun(normalizedRun);
+        const normalizedState = applyGameplayState(result.run, syncedState.meta);
 
         return {
           ...result,
-          run: normalizedRun,
+          run: normalizedState.run,
         };
       },
       acceptContract: (contractId) => {
-        const syncedRun = syncRunToTime(Date.now());
-        const result = acceptContractReducer(syncedRun, {
+        const syncedState = syncRunToTime(Date.now());
+        const result = acceptContractReducer(syncedState.run, {
           contractId,
         });
-        const normalizedRun = normalizeRun(result.run);
-
-        set({
-          run: normalizedRun,
-        });
-        persistRun(normalizedRun);
+        const normalizedState = applyGameplayState(result.run, syncedState.meta);
 
         return {
           ...result,
-          run: normalizedRun,
+          run: normalizedState.run,
         };
       },
       deliverContract: (contractId) => {
-        const syncedRun = syncRunToTime(Date.now());
-        const result = deliverContractReducer(syncedRun, {
+        const syncedState = syncRunToTime(Date.now());
+        const result = deliverContractReducer(syncedState.run, {
           contractId,
         });
-        const normalizedRun = normalizeRun(result.run);
-
-        set({
-          run: normalizedRun,
-        });
-        persistRun(normalizedRun);
+        const normalizedState = applyGameplayState(result.run, syncedState.meta);
 
         return {
           ...result,
-          run: normalizedRun,
+          run: normalizedState.run,
         };
       },
       claimContractReward: (contractId) => {
-        const syncedRun = syncRunToTime(Date.now());
-        const result = claimContractRewardReducer(syncedRun, {
+        const syncedState = syncRunToTime(Date.now());
+        const result = claimContractRewardReducer(syncedState.run, {
           contractId,
         });
-        const normalizedRun = normalizeRun(result.run);
-
-        set({
-          run: normalizedRun,
-        });
-        persistRun(normalizedRun);
+        const normalizedState = applyGameplayState(result.run, syncedState.meta);
 
         return {
           ...result,
-          run: normalizedRun,
+          run: normalizedState.run,
         };
       },
       renewLicense: () => {
-        const syncedRun = syncRunToTime(Date.now());
+        const syncedState = syncRunToTime(Date.now());
 
-        if (!isLicenseRenewalReady(syncedRun)) {
-          return syncedRun;
+        if (!isLicenseRenewalReady(syncedState.run)) {
+          return syncedState.run;
         }
 
-        persistRun(syncedRun);
+        persistGameplayState(syncedState);
         const currentSave = loadOrCreateSave();
         const renewedSave = renewLicenseSave();
         const didRenew = renewedSave.meta.renewals > currentSave.meta.renewals;
-        const nextRun = normalizeRun(
+        const nextState = applyGameplayState(
           renewedSave.run ?? createStarterRun(renewedSave.meta),
+          renewedSave.meta,
         );
         simulationAnchorMs = null;
-        set({
-          run: nextRun,
-        });
-        persistRun(nextRun);
 
         if (didRenew) {
           globalThis.dispatchEvent?.(new Event("overfishing:license-renewed"));
         }
 
-        return nextRun;
+        return nextState.run;
       },
       isLicenseRenewalReady: () => isLicenseRenewalReady(get().run),
       collectPassiveGear: (gearId) => {
-        const syncedRun = syncRunToTime(Date.now());
-        const result = collectPassiveGearReducer(syncedRun, {
+        const syncedState = syncRunToTime(Date.now());
+        const result = collectPassiveGearReducer(syncedState.run, {
           gearId,
         });
-        const normalizedRun = normalizeRun(result.run);
-
-        set({
-          run: normalizedRun,
-        });
-        persistRun(normalizedRun);
+        const normalizedState = applyGameplayState(result.run, syncedState.meta);
 
         return {
           ...result,
-          run: normalizedRun,
+          run: normalizedState.run,
         };
       },
       dismissPhaseUnlockModal: (phaseId) => {
-        const nextRun = normalizeRun(
+        const nextState = applyGameplayState(
           dismissPhaseUnlockModalReducer(get().run, phaseId),
+          get().meta,
         );
 
-        set({
-          run: nextRun,
-        });
-        persistRun(nextRun);
-
-        return nextRun;
+        return nextState.run;
       },
     };
   });
 
-export function createGameStore(initialRun: RunState = createStarterRun()) {
-  return createState(initialRun);
+export function createGameStore(
+  initialRun: RunState = createStarterRun(),
+  initialMeta: MetaProgressState = createDefaultMetaProgress(),
+) {
+  return createState(initialRun, initialMeta);
 }
 
 export const gameStore = createGameStore();
