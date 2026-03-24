@@ -40,3 +40,54 @@ export const regionDefinitions = {
 export function getRegionDefinition(regionId: keyof typeof regionDefinitions) {
   return regionDefinitions[regionId];
 }
+
+type RegionStockPressure = {
+  id: keyof typeof regionDefinitions;
+  stockCurrent: number;
+  stockCap: number;
+};
+
+export function getRegionStockPressureModifiers(
+  region: RegionStockPressure,
+) {
+  const baseRegion = getRegionDefinition(region.id);
+  const stockRatio =
+    region.stockCap > 0
+      ? Math.max(0, Math.min(1, region.stockCurrent / region.stockCap))
+      : 0;
+
+  const catchSpeedPressure =
+    stockRatio > 0.7 ? 1 : stockRatio > 0.4 ? 0.85 : stockRatio > 0.2 ? 0.6 : 0.3;
+  const scarcityPricePressure =
+    stockRatio > 0.3 ? 1 : stockRatio > 0.1 ? 1.25 : 1.6;
+
+  return {
+    catchSpeedModifier: baseRegion.catchSpeedModifier * catchSpeedPressure,
+    scarcityPriceModifier:
+      baseRegion.scarcityPriceModifier * scarcityPricePressure,
+  };
+}
+
+export function applyRegionStockPressure<T extends RegionStockPressure>(
+  region: T,
+): T & ReturnType<typeof getRegionStockPressureModifiers> {
+  return {
+    ...region,
+    ...getRegionStockPressureModifiers(region),
+  };
+}
+
+export function applyRegionsStockPressure<
+  T extends Record<string, RegionStockPressure>,
+>(regions: T): {
+  [K in keyof T]: T[K] & ReturnType<typeof getRegionStockPressureModifiers>;
+} {
+  return Object.fromEntries(
+    Object.entries(regions).map(([regionId, region]) => [
+      regionId,
+      applyRegionStockPressure(region),
+    ]),
+  ) as {
+    [K in keyof T]: T[K] & ReturnType<typeof getRegionStockPressureModifiers>;
+  };
+}

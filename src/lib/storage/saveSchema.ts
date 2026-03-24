@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 import { getPhaseDefinition } from "@/lib/economy/phases";
-import { regionDefinitions } from "@/lib/economy/regions";
+import {
+  applyRegionsStockPressure,
+  regionDefinitions,
+} from "@/lib/economy/regions";
 
 export const phaseIdSchema = z.enum([
   "quietPier",
@@ -182,15 +185,17 @@ export function createDefaultSettings(): SettingsState {
 
 export function createStarterRun(): RunState {
   const quietPier = getPhaseDefinition("quietPier");
-  const regions = Object.fromEntries(
-    Object.values(regionDefinitions).map((region) => [
-      region.id,
-      {
-        ...region,
-        stockCurrent: region.stockCap,
-      },
-    ]),
-  ) as RunState["regions"];
+  const regions = applyRegionsStockPressure(
+    Object.fromEntries(
+      Object.values(regionDefinitions).map((region) => [
+        region.id,
+        {
+          ...region,
+          stockCurrent: region.stockCap,
+        },
+      ]),
+    ) as RunState["regions"],
+  );
 
   return {
     phase: "quietPier",

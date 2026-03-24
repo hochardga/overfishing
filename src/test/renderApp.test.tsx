@@ -1,7 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { vi } from "vitest";
 
 import App from "@/App";
+import { gameStore } from "@/lib/simulation/gameStore";
 
 function renderAtPath(pathname: string) {
   window.history.pushState({}, "", pathname);
@@ -10,7 +12,13 @@ function renderAtPath(pathname: string) {
 
 describe("App bootstrap", () => {
   beforeEach(() => {
+    gameStore.getState().stopSimulationLoop();
+    gameStore.getState().resetRun();
     localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("shows the product name in the initial shell", () => {
@@ -54,6 +62,75 @@ describe("App bootstrap", () => {
     expect(screen.getByLabelText("primary column")).toBeInTheDocument();
     expect(screen.getByLabelText("active panel column")).toBeInTheDocument();
     expect(screen.getByLabelText("operations column")).toBeInTheDocument();
+  });
+
+  it("renders a live cast control on the play route", () => {
+    renderAtPath("/play");
+
+    expect(
+      screen.getByRole("button", { name: /cast line/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/perfect window/i)).toBeInTheDocument();
+  });
+
+  it("casts through timing windows on the live play route", () => {
+    vi.useFakeTimers();
+
+    renderAtPath("/play");
+    fireEvent.click(screen.getByRole("button", { name: /cast line/i }));
+
+    expect(
+      screen.getByText(/perfect pull: \+2 fish, \+\$8\./i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Cash in hand: $8")).toBeInTheDocument();
+    expect(screen.getByText("Pier Cove stock: 118 / 120")).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(3_000);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /cast line/i }));
+
+    expect(screen.getByText(/clean cast: \+1 fish, \+\$4\./i)).toBeInTheDocument();
+    expect(screen.getByText("Cash in hand: $12")).toBeInTheDocument();
+    expect(screen.getByText("Pier Cove stock: 118 / 120")).toBeInTheDocument();
+    expect(
+      screen.getByText(/ready in 2\.2s/i),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps manual progress when the play route remounts in the same session", () => {
+    vi.useFakeTimers();
+
+    const firstRender = renderAtPath("/play");
+    fireEvent.click(screen.getByRole("button", { name: /cast line/i }));
+
+    expect(screen.getByText(/cash in hand: \$8/i)).toBeInTheDocument();
+
+    firstRender.unmount();
+    renderAtPath("/play");
+
+    expect(screen.getByText(/cash in hand: \$8/i)).toBeInTheDocument();
+    expect(screen.getByText(/pier cove stock: 118 \/ 120/i)).toBeInTheDocument();
+  });
+
+  it("persists live play progress before the page unloads", () => {
+    vi.useFakeTimers();
+
+    renderAtPath("/play");
+    fireEvent.click(screen.getByRole("button", { name: /cast line/i }));
+
+    act(() => {
+      vi.advanceTimersByTime(1_000);
+    });
+
+    window.dispatchEvent(new Event("beforeunload"));
+
+    const storedSave = JSON.parse(localStorage.getItem("overfishing-save") ?? "{}");
+
+    expect(storedSave.run.cash).toBe(8);
+    expect(storedSave.run.manual.cooldownMs).toBe(1_200);
+    expect(storedSave.run.regions.pierCove.stockCurrent).toBeCloseTo(118.5, 5);
   });
 
   it("renders a distinct settings page shell at /settings", () => {
