@@ -53,6 +53,17 @@ function createSkiffOperatorRun(): RunState {
   return run;
 }
 
+function createCompactShopRun(): RunState {
+  const starterRun = createStarterRun();
+
+  return {
+    ...starterRun,
+    cash: 100,
+    lifetimeFishLanded: 8,
+    lifetimeRevenue: 32,
+  };
+}
+
 function createDocksideGearRun(): RunState {
   const starterRun = createStarterRun();
 
@@ -317,12 +328,16 @@ describe("App bootstrap", () => {
     });
   });
 
-  it("renders a distinct play page shell at /play", () => {
+  it("renders a compact play page shell at /play before the harbor expands", () => {
     renderAtPath("/play");
 
+    expect(screen.getByTestId("play-shell-compact-stack")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /harbor operations/i }),
+      screen.getByRole("heading", { name: /cast line/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /harbor operations/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows first-cast onboarding guidance on a fresh run", () => {
@@ -332,6 +347,22 @@ describe("App bootstrap", () => {
     expect(
       screen.getByText(/cast a line and see what's biting/i),
     ).toBeInTheDocument();
+  });
+
+  it("renders only the center compact stack on a fresh run", () => {
+    renderAtPath("/play");
+
+    expect(screen.getByTestId("play-shell-compact-stack")).toBeInTheDocument();
+    expect(screen.queryByTestId("status-rail")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("primary column")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("operations column")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("active panel column")).toBeInTheDocument();
+    expect(
+      Array.from(
+        screen.getByTestId("play-shell-compact-stack").children,
+        (child) => child.getAttribute("data-testid"),
+      ),
+    ).toEqual(["play-shell-onboarding", "play-shell-cast-button"]);
   });
 
   it("shows a restore skeleton before hydrating an existing save", async () => {
@@ -382,9 +413,17 @@ describe("App bootstrap", () => {
     ).toBeInTheDocument();
   });
 
-  it("surfaces the Quiet Pier upgrade shop on the play route", () => {
+  it("renders compact reveal content in a fixed order before the harbor expands", () => {
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun(createCompactShopRun(), state.meta);
+    });
+
     renderAtPath("/play");
 
+    expect(screen.queryByTestId("play-shell-onboarding")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-shell-compact-reading-the-rail")).toBeInTheDocument();
+    expect(screen.getByTestId("shop-reveal-cue")).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /quiet pier upgrades/i }),
     ).toBeInTheDocument();
@@ -397,13 +436,25 @@ describe("App bootstrap", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/locked until skiff operator/i).length).toBeGreaterThan(0);
+    expect(
+      Array.from(
+        screen.getByTestId("play-shell-compact-stack").children,
+        (child) => child.getAttribute("data-testid"),
+      ),
+    ).toEqual([
+      "play-shell-compact-early-hud",
+      "play-shell-compact-reading-the-rail",
+      "play-shell-cast-button",
+      "shop-reveal-cue",
+      "play-shell-compact-upgrade-shop",
+    ]);
   });
 
   it("keeps next-phase progress anchored to the slower unlock requirement", () => {
     act(() => {
       const state = gameStore.getState();
       state.replaceRun({
-        ...state.run,
+        ...createCompactShopRun(),
         lifetimeFishLanded: 60,
         lifetimeRevenue: 100,
       }, state.meta);
@@ -473,8 +524,7 @@ describe("App bootstrap", () => {
     act(() => {
       const state = gameStore.getState();
       state.replaceRun({
-        ...state.run,
-        cash: 100,
+        ...createCompactShopRun(),
       }, state.meta);
     });
 
@@ -485,6 +535,9 @@ describe("App bootstrap", () => {
     expect(gameStore.getState().run.unlocks.upgrades).toContain("betterBait");
     expect(gameStore.getState().run.cash).toBe(85);
     expect(screen.getByRole("button", { name: /owned/i })).toBeInTheDocument();
+    expect(screen.getByTestId("status-rail")).toBeInTheDocument();
+    expect(screen.getByLabelText("primary column")).toBeInTheDocument();
+    expect(screen.getByLabelText("operations column")).toBeInTheDocument();
   });
 
   it("rehydrates purchased upgrades from saved data after a refresh", async () => {
@@ -493,8 +546,7 @@ describe("App bootstrap", () => {
     act(() => {
       const state = gameStore.getState();
       state.replaceRun({
-        ...state.run,
-        cash: 100,
+        ...createCompactShopRun(),
       }, state.meta);
     });
 
@@ -508,7 +560,12 @@ describe("App bootstrap", () => {
     expect(freshStore.getState().run.cash).toBe(85);
   });
 
-  it("renders the play shell status rail and three columns at /play", () => {
+  it("renders the play shell status rail and three columns after the compact intro expands", () => {
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun(createSkiffOperatorRun(), state.meta);
+    });
+
     renderAtPath("/play");
 
     expect(screen.getByTestId("status-rail")).toBeInTheDocument();
@@ -535,6 +592,11 @@ describe("App bootstrap", () => {
   });
 
   it("renders the early resource rail with selector-backed labels", () => {
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun(createCompactShopRun(), state.meta);
+    });
+
     renderAtPath("/play");
 
     const hud = screen.getByTestId("early-hud");
@@ -555,6 +617,11 @@ describe("App bootstrap", () => {
   });
 
   it("updates stock pressure as the pier stock falls", () => {
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun(createCompactShopRun(), state.meta);
+    });
+
     renderAtPath("/play");
 
     expect(screen.getByTestId("early-stock-pressure")).toHaveTextContent(
@@ -901,9 +968,7 @@ describe("App bootstrap", () => {
       screen.getByText(/perfect pull: \+2 fish, \+\$8\./i),
     ).toBeInTheDocument();
     expect(screen.getByTestId("early-cash")).toHaveTextContent("$8");
-    expect(screen.getByTestId("early-nearby-fish")).toHaveTextContent(
-      /118 \/ 120/i,
-    );
+    expect(screen.queryByTestId("early-nearby-fish")).not.toBeInTheDocument();
 
     act(() => {
       vi.advanceTimersByTime(3_000);
@@ -928,14 +993,13 @@ describe("App bootstrap", () => {
     fireEvent.click(screen.getByRole("button", { name: /cast line/i }));
 
     expect(screen.getByTestId("early-cash")).toHaveTextContent("$8");
+    expect(screen.queryByTestId("play-shell-onboarding")).not.toBeInTheDocument();
 
     firstRender.unmount();
     renderAtPath("/play");
 
     expect(screen.getByTestId("early-cash")).toHaveTextContent("$8");
-    expect(screen.getByTestId("early-nearby-fish")).toHaveTextContent(
-      /118 \/ 120/i,
-    );
+    expect(screen.queryByTestId("play-shell-onboarding")).not.toBeInTheDocument();
   });
 
   it("persists live play progress before the page unloads", () => {

@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { EarlyHud } from "@/components/game/EarlyHud";
+import { GameShell } from "@/components/game/GameShell";
 import { syncDiscoveryState } from "@/lib/simulation/reducers/discovery";
 import { selectPlayShellVisibility } from "@/lib/simulation/selectors";
 import {
@@ -61,6 +62,30 @@ function PlayShellVisibilityHarness({
 }
 
 describe("play shell compact reveal", () => {
+  it("renders only the center column when the shell is in compact mode", () => {
+    render(
+      <GameShell
+        centerColumn={<section>Center column</section>}
+        layoutMode="compact"
+        leftColumn={<section>Left column</section>}
+        rightColumn={<section>Right column</section>}
+        statusItems={[
+          {
+            label: "Cash",
+            value: "$0",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Center column")).toBeInTheDocument();
+    expect(screen.getByLabelText("active panel column")).toBeInTheDocument();
+    expect(screen.queryByText("Left column")).not.toBeInTheDocument();
+    expect(screen.queryByText("Right column")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("primary column")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("operations column")).not.toBeInTheDocument();
+  });
+
   it("renders only onboarding plus the cast surface for a fresh run", () => {
     const meta = createDefaultMetaProgress();
     const run = createStarterRun(meta);
@@ -86,6 +111,42 @@ describe("play shell compact reveal", () => {
     expect(screen.queryByText(/reading the rail/i)).not.toBeInTheDocument();
     expect(screen.queryByTestId("shop-reveal-cue")).not.toBeInTheDocument();
     expect(screen.queryByTestId("early-hud")).not.toBeInTheDocument();
+  });
+
+  it("switches the selector contract to the full shell after the first upgrade or skiff operator", () => {
+    const meta = createDefaultMetaProgress();
+    const starterRun = createStarterRun(meta);
+    const { run: upgradedRun, meta: upgradedMeta } = syncDiscoveryState(
+      {
+        ...starterRun,
+        cash: 15,
+        unlocks: {
+          ...starterRun.unlocks,
+          upgrades: ["betterBait"],
+        },
+      },
+      meta,
+    );
+
+    const fullFromUpgrade = selectPlayShellVisibility(upgradedRun, upgradedMeta);
+    const fullFromSkiffOperator = selectPlayShellVisibility(
+      {
+        ...starterRun,
+        phase: "skiffOperator",
+        unlocks: {
+          ...starterRun.unlocks,
+          phasesSeen: ["quietPier", "skiffOperator"],
+        },
+      },
+      meta,
+    );
+
+    expect(fullFromUpgrade.shellMode).toBe("full");
+    expect(fullFromUpgrade.showStatusRail).toBe(true);
+    expect(fullFromUpgrade.showUpgradeShop).toBe(true);
+    expect(fullFromSkiffOperator.shellMode).toBe("full");
+    expect(fullFromSkiffOperator.showLeftColumnCards).toBe(true);
+    expect(fullFromSkiffOperator.showReadingTheRailCard).toBe(true);
   });
 
   it("renders only the discovered early-hud cards after the first successful cast", () => {
