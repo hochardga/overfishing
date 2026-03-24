@@ -82,7 +82,7 @@
   Files: `src/features/upgrades/UpgradeShop.tsx`, `src/lib/simulation/reducers/upgrades.ts`, `src/lib/economy/upgrades.ts`
   Notes: Wire Better Bait, Hand Reel, Tackle Tin, Lucky Hat, and Salted Lunch. Verify: purchases unlock only when affordable and persist after refresh.
 
-- [ ] **TASK-012** — Add the Skiff Operator phase with fuel, hold space, and Kelp Bed trips
+- [x] **TASK-012** — Add the Skiff Operator phase with fuel, hold space, and Kelp Bed trips
   Files: `src/features/fleet/SkiffPanel.tsx`, `src/lib/simulation/reducers/skiffTrips.ts`, `src/lib/economy/regions.ts`
   Notes: Implement Harbor Map, Rusty Skiff, Outboard Motor, Ice Chest, and Rod Rack. Verify: fishing trips consume fuel, fill hold, and pay out correctly.
 

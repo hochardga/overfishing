@@ -7,12 +7,20 @@ import {
 } from "@/lib/storage/saveAdapter";
 import {
   createStarterRun,
+  type RegionId,
   type RunState,
 } from "@/lib/storage/saveSchema";
 import {
   performManualCast,
   type ManualCastResult,
 } from "@/lib/simulation/reducers/manualFishing";
+import {
+  refuelSkiff as refuelSkiffReducer,
+  startSkiffTrip as startSkiffTripReducer,
+  syncSkiffState,
+  type RefuelSkiffResult,
+  type StartSkiffTripResult,
+} from "@/lib/simulation/reducers/skiffTrips";
 import {
   purchaseUpgrade as purchaseUpgradeReducer,
   type UpgradePurchaseResult,
@@ -30,6 +38,8 @@ export type GameStoreState = {
   stopSimulationLoop: () => void;
   castManual: (nowMs: number) => ManualCastResult;
   purchaseUpgrade: (upgradeId: string) => UpgradePurchaseResult;
+  startSkiffTrip: (boatId: string, regionId: RegionId) => StartSkiffTripResult;
+  refuelSkiff: (boatId: string) => RefuelSkiffResult;
 };
 
 const createState = (initialRun: RunState = createStarterRun()) =>
@@ -46,7 +56,8 @@ const createState = (initialRun: RunState = createStarterRun()) =>
       }));
     };
 
-    const normalizeRun = (run: RunState) => applyUnlockChecks(run);
+    const normalizeRun = (run: RunState) =>
+      syncSkiffState(applyUnlockChecks(run));
 
     const syncRunToTime = (nowMs: number) => {
       if (simulationAnchorMs === null) {
@@ -144,23 +155,72 @@ const createState = (initialRun: RunState = createStarterRun()) =>
         const result = performManualCast(syncedRun, {
           nowMs,
         });
+        const normalizedRun = normalizeRun(result.run);
 
         set({
-          run: result.run,
+          run: normalizedRun,
         });
-        persistRun(result.run);
+        persistRun(normalizedRun);
 
-        return result;
+        return {
+          ...result,
+          run: normalizedRun,
+        };
       },
       purchaseUpgrade: (upgradeId) => {
-        const result = purchaseUpgradeReducer(get().run, upgradeId);
+        const previousRun = get().run;
+        const result = purchaseUpgradeReducer(previousRun, upgradeId);
+        const normalizedRun = normalizeRun(result.run);
 
         set({
-          run: result.run,
+          run: normalizedRun,
         });
-        persistRun(result.run);
+        persistRun(normalizedRun);
 
-        return result;
+        return {
+          ...result,
+          run: normalizedRun,
+          newCashBalance: normalizedRun.cash,
+          unlockedPhase:
+            normalizedRun.phase !== previousRun.phase
+              ? normalizedRun.phase
+              : undefined,
+        };
+      },
+      startSkiffTrip: (boatId, regionId) => {
+        const syncedRun = syncRunToTime(Date.now());
+        const result = startSkiffTripReducer(syncedRun, {
+          boatId,
+          regionId,
+        });
+        const normalizedRun = normalizeRun(result.run);
+
+        set({
+          run: normalizedRun,
+        });
+        persistRun(normalizedRun);
+
+        return {
+          ...result,
+          run: normalizedRun,
+        };
+      },
+      refuelSkiff: (boatId) => {
+        const syncedRun = syncRunToTime(Date.now());
+        const result = refuelSkiffReducer(syncedRun, {
+          boatId,
+        });
+        const normalizedRun = normalizeRun(result.run);
+
+        set({
+          run: normalizedRun,
+        });
+        persistRun(normalizedRun);
+
+        return {
+          ...result,
+          run: normalizedRun,
+        };
       },
     };
   });

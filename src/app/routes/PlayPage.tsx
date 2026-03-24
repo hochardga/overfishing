@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { EarlyHud } from "@/components/game/EarlyHud";
 import { GameShell } from "@/components/game/GameShell";
 import { Card } from "@/components/ui/Card";
+import { SkiffPanel } from "@/features/fleet/SkiffPanel";
 import { CastButton } from "@/features/fishing/CastButton";
 import { UpgradeShop } from "@/features/upgrades/UpgradeShop";
 import { useGameStore } from "@/lib/simulation/gameStore";
@@ -60,6 +61,9 @@ export default function PlayPage() {
         <>
           <EarlyHud run={run} />
           <CastButton />
+          {run.unlocks.phasesSeen.includes("skiffOperator") ? (
+            <SkiffPanel run={run} />
+          ) : null}
         </>
       }
       rightColumn={

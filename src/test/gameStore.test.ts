@@ -65,8 +65,8 @@ describe("game store", () => {
     store.getState().tick(1);
     const nextRun = store.getState().run;
 
-    expect(nextRun.regions.kelpBed.catchSpeedModifier).toBe(0.9);
-    expect(nextRun.regions.kelpBed.scarcityPriceModifier).toBe(1.05);
+    expect(nextRun.regions.kelpBed.catchSpeedModifier).toBe(1);
+    expect(nextRun.regions.kelpBed.scarcityPriceModifier).toBe(1);
     expect(nextRun.regions.offshoreShelf.catchSpeedModifier).toBe(0.8);
     expect(nextRun.regions.offshoreShelf.scarcityPriceModifier).toBe(1.1);
   });

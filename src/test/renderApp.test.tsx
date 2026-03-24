@@ -9,11 +9,35 @@ import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
 import App from "@/App";
+import { createStarterRun } from "@/lib/storage/saveSchema";
 import { createGameStore, gameStore } from "@/lib/simulation/gameStore";
+import { purchaseUpgrade } from "@/lib/simulation/reducers/upgrades";
 
 function renderAtPath(pathname: string) {
   window.history.pushState({}, "", pathname);
   return render(<App />);
+}
+
+function createSkiffOperatorRun() {
+  const starterRun = createStarterRun();
+  let run = {
+    ...starterRun,
+    phase: "skiffOperator" as const,
+    cash: 1_000,
+    lifetimeFishLanded: 60,
+    lifetimeRevenue: 250,
+    unlocks: {
+      ...starterRun.unlocks,
+      tabs: ["harbor", "fleet", "settings"],
+      upgrades: [],
+      phasesSeen: ["quietPier", "skiffOperator"],
+    },
+  };
+
+  run = purchaseUpgrade(run, "harborMap").run;
+  run = purchaseUpgrade(run, "rustySkiff").run;
+
+  return run;
 }
 
 describe("App bootstrap", () => {
@@ -246,6 +270,46 @@ describe("App bootstrap", () => {
     expect(screen.getByTestId("early-stock-pressure-meter")).toHaveStyle({
       width: "75%",
     });
+  });
+
+  it("renders live skiff trip controls and pays out a Kelp Bed run on the play route", async () => {
+    const user = userEvent.setup();
+
+    act(() => {
+      gameStore.getState().replaceRun(createSkiffOperatorRun());
+    });
+
+    renderAtPath("/play");
+
+    const panel = screen.getByTestId("skiff-panel");
+
+    expect(
+      within(panel).getByRole("heading", { name: /rusty skiff/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("skiff-fuel")).toHaveTextContent(/20 \/ 20/i);
+    expect(screen.getByTestId("skiff-hold")).toHaveTextContent(/0 \/ 15/i);
+
+    await user.click(
+      within(panel).getByRole("button", { name: /run kelp bed trip/i }),
+    );
+
+    expect(gameStore.getState().run.boats.rustySkiff.assignedRegionId).toBe(
+      "kelpBed",
+    );
+    expect(screen.getByTestId("skiff-fuel")).toHaveTextContent(/14 \/ 20/i);
+    expect(
+      within(panel).getByRole("button", { name: /kelp bed trip underway/i }),
+    ).toBeDisabled();
+
+    act(() => {
+      gameStore.getState().tick(20);
+    });
+
+    expect(gameStore.getState().run.cash).toBe(675);
+    expect(screen.getByTestId("skiff-hold")).toHaveTextContent(/0 \/ 15/i);
+    expect(
+      within(panel).getByRole("button", { name: /run kelp bed trip/i }),
+    ).toBeInTheDocument();
   });
 
   it("casts through timing windows on the live play route", () => {

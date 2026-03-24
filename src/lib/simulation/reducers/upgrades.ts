@@ -1,6 +1,7 @@
 import { getUpgradeDefinition, type UpgradeId } from "@/lib/economy/upgrades";
 import type { PhaseId, RunState } from "@/lib/storage/saveSchema";
 
+import { syncSkiffState } from "@/lib/simulation/reducers/skiffTrips";
 import { applyUnlockChecks } from "@/lib/simulation/reducers/unlocks";
 
 export type UpgradePurchaseOutcome =
@@ -93,14 +94,16 @@ export function purchaseUpgrade(
     };
   }
 
-  const purchasedRun: RunState = applyUnlockChecks({
-    ...run,
-    cash: run.cash - definition.cost,
-    unlocks: {
-      ...run.unlocks,
-      upgrades: [...run.unlocks.upgrades, upgradeId],
-    },
-  });
+  const purchasedRun: RunState = syncSkiffState(
+    applyUnlockChecks({
+      ...run,
+      cash: run.cash - definition.cost,
+      unlocks: {
+        ...run.unlocks,
+        upgrades: [...run.unlocks.upgrades, upgradeId],
+      },
+    }),
+  );
 
   return {
     outcome: "purchased",

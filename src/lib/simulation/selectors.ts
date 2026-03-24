@@ -1,11 +1,15 @@
 import type { RunState } from "@/lib/storage/saveSchema";
 import { getPhaseDefinition } from "@/lib/economy/phases";
 import { upgradeDefinitions } from "@/lib/economy/upgrades";
-import { applyRegionStockPressure } from "@/lib/economy/regions";
+import {
+  applyRegionStockPressure,
+  getRegionDefinition,
+} from "@/lib/economy/regions";
 import {
   getManualCastCycleMs,
   resolveManualCastZoneHit,
 } from "@/lib/simulation/reducers/manualFishing";
+import { getSkiffTripFuelCost } from "@/lib/simulation/reducers/skiffTrips";
 import { phaseUnlockRules } from "@/lib/simulation/reducers/unlocks";
 
 export function formatElapsedSeconds(elapsedSeconds: number) {
@@ -291,5 +295,84 @@ export function selectUpgradeShopState(run: RunState): UpgradeShopState {
     fishProgress,
     revenueProgress,
     items,
+  };
+}
+
+export type SkiffPanelState = {
+  title: string;
+  intro: string;
+  routeLabel: string;
+  routeDetail: string;
+  status: string;
+  tripButtonLabel: string;
+  tripButtonDisabled: boolean;
+  refuelButtonDisabled: boolean;
+  fuelValue: string;
+  fuelDetail: string;
+  fuelProgress?: number;
+  holdValue: string;
+  holdDetail: string;
+  holdProgress?: number;
+};
+
+export function selectSkiffPanelState(run: RunState): SkiffPanelState {
+  const kelpBed = applyRegionStockPressure(run.regions.kelpBed);
+  const fuelCost = getSkiffTripFuelCost("kelpBed");
+  const boat = run.boats.rustySkiff;
+  const hasHarborMap = run.unlocks.upgrades.includes("harborMap");
+  const activeCatchRate = boat
+    ? boat.catchRatePerSecond * Math.max(0.1, kelpBed.catchSpeedModifier)
+    : 0;
+  const fuelProgress =
+    boat && boat.fuelCap > 0 ? boat.fuelCurrent / boat.fuelCap : undefined;
+  const holdProgress =
+    boat && boat.holdCap > 0 ? boat.holdCurrent / boat.holdCap : undefined;
+  const status = !hasHarborMap
+    ? "Buy Harbor Map to chart the Kelp Bed."
+    : !boat
+      ? "Buy the Rusty Skiff to start short fishing runs."
+      : boat.status === "fishing"
+        ? "Kelp Bed trip underway. The hold is filling on the line."
+        : boat.fuelCurrent < fuelCost
+          ? "The skiff needs more fuel before the next Kelp Bed run."
+          : boat.fuelCurrent < boat.fuelCap
+            ? "Trip complete. Top up fuel before heading back out."
+            : "Route is charted and the skiff is ready.";
+
+  return {
+    title: "Rusty Skiff",
+    intro: "Short Kelp Bed runs turn the dock from casting into routing.",
+    routeLabel: getRegionDefinition("kelpBed").label,
+    routeDetail: hasHarborMap
+      ? `Trip fuel ${fuelCost}. Catch rate ${activeCatchRate.toFixed(2)} fish/sec. Fish are worth $${kelpBed.baseFishValue.toFixed(0)} each before pressure.`
+      : "Harbor Map unlocks the first route beyond Pier Cove.",
+    status,
+    tripButtonLabel:
+      boat?.status === "fishing"
+        ? "Kelp Bed trip underway"
+        : `Run ${getRegionDefinition("kelpBed").label} trip`,
+    tripButtonDisabled:
+      !hasHarborMap ||
+      !boat ||
+      boat.status === "fishing" ||
+      boat.fuelCurrent < fuelCost,
+    refuelButtonDisabled:
+      !boat || boat.status === "fishing" || boat.fuelCurrent >= boat.fuelCap,
+    fuelValue: boat
+      ? `${boat.fuelCurrent.toFixed(0)} / ${boat.fuelCap.toFixed(0)}`
+      : "Locked",
+    fuelDetail: boat
+      ? `${Math.max(0, Math.floor(boat.fuelCurrent / fuelCost))} more Kelp Bed runs before refueling.`
+      : "Rusty Skiff fuel tank is not in service yet.",
+    fuelProgress,
+    holdValue: boat
+      ? `${boat.holdCurrent.toFixed(0)} / ${boat.holdCap.toFixed(0)}`
+      : "Locked",
+    holdDetail: boat
+      ? boat.status === "fishing"
+        ? `Fishing ${kelpBed.label}.`
+        : "Hold clears automatically when the skiff docks and sells."
+      : "Buy the skiff to start filling a hold.",
+    holdProgress,
   };
 }
