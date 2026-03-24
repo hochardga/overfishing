@@ -1,7 +1,6 @@
 import { create } from "zustand";
 
 import {
-  loadOrCreateSave,
   updateSave,
 } from "@/lib/storage/saveAdapter";
 import {
@@ -44,7 +43,7 @@ function readStoredSettings(): SettingsState {
   const rawSave = localStorage.getItem(SAVE_STORAGE_KEY);
 
   if (!rawSave) {
-    return loadOrCreateSave().settings;
+    return initialSettings;
   }
 
   try {

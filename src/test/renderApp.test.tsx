@@ -307,6 +307,16 @@ describe("App bootstrap", () => {
     ).toBeInTheDocument();
   });
 
+  it("does not create a save file when only booting settings on the landing route", async () => {
+    localStorage.clear();
+
+    renderAtPath("/");
+
+    await waitFor(() => {
+      expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBeNull();
+    });
+  });
+
   it("renders a distinct play page shell at /play", () => {
     renderAtPath("/play");
 

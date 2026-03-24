@@ -444,7 +444,16 @@ const createState = (initialRun: RunState = createStarterRun()) =>
         };
       },
       renewLicense: () => {
+        const syncedRun = syncRunToTime(Date.now());
+
+        if (!isLicenseRenewalReady(syncedRun)) {
+          return syncedRun;
+        }
+
+        persistRun(syncedRun);
+        const currentSave = loadOrCreateSave();
         const renewedSave = renewLicenseSave();
+        const didRenew = renewedSave.meta.renewals > currentSave.meta.renewals;
         const nextRun = normalizeRun(
           renewedSave.run ?? createStarterRun(renewedSave.meta),
         );
@@ -453,7 +462,10 @@ const createState = (initialRun: RunState = createStarterRun()) =>
           run: nextRun,
         });
         persistRun(nextRun);
-        globalThis.dispatchEvent?.(new Event("overfishing:license-renewed"));
+
+        if (didRenew) {
+          globalThis.dispatchEvent?.(new Event("overfishing:license-renewed"));
+        }
 
         return nextRun;
       },

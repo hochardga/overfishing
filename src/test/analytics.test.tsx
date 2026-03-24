@@ -46,6 +46,46 @@ function createConsentEnabledRun(overrides: Partial<RunState> = {}): RunState {
   };
 }
 
+function createRenewalReadyRun(): RunState {
+  const starterRun = createStarterRun();
+
+  return {
+    ...starterRun,
+    phase: "regionalExtraction",
+    uiTone: "industrial",
+    cash: 6_000,
+    trust: 54,
+    oceanHealth: 61,
+    lifetimeFishLanded: 1_120,
+    lifetimeRevenue: 6_800,
+    unlocks: {
+      ...starterRun.unlocks,
+      tabs: ["harbor", "fleet", "processing", "regions", "settings"],
+      upgrades: [
+        "harborMap",
+        "rustySkiff",
+        "hireCousin",
+        "dockLease",
+        "usedWorkSkiff",
+        "deckhandHire",
+        "processingShed",
+        "flashFreezer",
+        "canneryLine",
+      ],
+      phasesSeen: [
+        "quietPier",
+        "skiffOperator",
+        "docksideGear",
+        "fleetOps",
+        "processingContracts",
+        "regionalExtraction",
+      ],
+      pendingPhaseModalIds: [],
+      dismissedPhaseModalIds: [],
+    },
+  };
+}
+
 describe("analytics", () => {
   beforeEach(() => {
     gameStore.getState().stopSimulationLoop();
@@ -148,7 +188,7 @@ describe("analytics", () => {
       initialized: true,
     });
     act(() => {
-      gameStore.getState().replaceRun(createConsentEnabledRun());
+      gameStore.getState().replaceRun(createRenewalReadyRun());
     });
 
     renderWithProviders("/settings", { track });
@@ -172,5 +212,29 @@ describe("analytics", () => {
         expect.objectContaining({ name: "license_renewed" }),
       );
     });
+  });
+
+  it("does not track a license renewal event when the run is not renewal-ready", () => {
+    const track = vi.fn().mockResolvedValue("preview");
+
+    useSettingsStore.setState({
+      ...createDefaultSettings(),
+      analyticsConsent: true,
+      errorMessage: null,
+      initialized: true,
+    });
+    act(() => {
+      gameStore.getState().replaceRun(createConsentEnabledRun());
+    });
+
+    renderWithProviders("/settings", { track });
+
+    act(() => {
+      gameStore.getState().renewLicense();
+    });
+
+    expect(track).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: "license_renewed" }),
+    );
   });
 });
