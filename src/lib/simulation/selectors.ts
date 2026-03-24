@@ -1,5 +1,6 @@
 import type { RunState } from "@/lib/storage/saveSchema";
 import { getPhaseDefinition } from "@/lib/economy/phases";
+import { applyRegionStockPressure } from "@/lib/economy/regions";
 import {
   getManualCastCycleMs,
   resolveManualCastZoneHit,
@@ -52,8 +53,30 @@ export function selectManualCastReadout(run: RunState) {
   };
 }
 
+function selectPressureLabelFromRegion(run: RunState) {
+  const pierCove = applyRegionStockPressure(run.regions.pierCove);
+  const stockRatio =
+    pierCove.stockCap > 0
+      ? Math.max(0, Math.min(1, pierCove.stockCurrent / pierCove.stockCap))
+      : 0;
+
+  if (stockRatio > 0.7) {
+    return "Stable";
+  }
+
+  if (stockRatio > 0.4) {
+    return "Watch";
+  }
+
+  return "Strained";
+}
+
 function formatCash(cash: number) {
   return `$${cash.toFixed(0)}`;
+}
+
+function formatPercent(value: number) {
+  return `${Math.round(value * 100)}%`;
 }
 
 function selectStockLabel(run: RunState) {
@@ -80,6 +103,62 @@ function selectStockLabel(run: RunState) {
   }
 
   return "Strained";
+}
+
+export type EarlyHudReadout = {
+  label: string;
+  value: string;
+  detail: string;
+  progress?: number;
+};
+
+export type EarlyHudState = {
+  cash: EarlyHudReadout;
+  nearbyFish: EarlyHudReadout;
+  cooldown: EarlyHudReadout;
+  stockPressure: EarlyHudReadout;
+};
+
+export function selectEarlyHudState(run: RunState): EarlyHudState {
+  const pierCove = applyRegionStockPressure(run.regions.pierCove);
+  const stockRatio =
+    pierCove.stockCap > 0
+      ? Math.max(0, Math.min(1, pierCove.stockCurrent / pierCove.stockCap))
+      : 0;
+  const cooldownProgress =
+    run.manual.cooldownMs > 0
+      ? Math.max(0, 1 - run.manual.cooldownMs / getManualCastCycleMs(run))
+      : 1;
+  const stockLabel = selectPressureLabelFromRegion(run);
+
+  return {
+    cash: {
+      label: "Cash in hand",
+      value: formatCash(run.cash),
+      detail: "Immediate payout from casts.",
+    },
+    nearbyFish: {
+      label: "Fish nearby",
+      value: `${pierCove.stockCurrent.toFixed(0)} / ${pierCove.stockCap.toFixed(0)}`,
+      detail: `Pier Cove is ${formatPercent(stockRatio)} stocked.`,
+      progress: stockRatio,
+    },
+    cooldown: {
+      label: "Cast cooldown",
+      value: run.manual.cooldownMs > 0 ? formatCooldownMs(run.manual.cooldownMs) : "Ready to cast",
+      detail:
+        run.manual.cooldownMs > 0
+          ? "Cast line locked."
+          : "Sweet spot is live.",
+      progress: cooldownProgress,
+    },
+    stockPressure: {
+      label: "Stock pressure",
+      value: stockLabel,
+      detail: `Catch speed ${formatPercent(pierCove.catchSpeedModifier)}, fish value ${formatPercent(pierCove.scarcityPriceModifier)}.`,
+      progress: 1 - stockRatio,
+    },
+  };
 }
 
 export function selectStatusRailItems(run: RunState) {

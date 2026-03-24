@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
@@ -73,6 +79,64 @@ describe("App bootstrap", () => {
     expect(screen.getByText(/perfect window/i)).toBeInTheDocument();
   });
 
+  it("renders the early resource rail with selector-backed labels", () => {
+    renderAtPath("/play");
+
+    const hud = screen.getByTestId("early-hud");
+
+    expect(within(hud).getByText(/cash in hand/i)).toBeInTheDocument();
+    expect(within(hud).getByText(/fish nearby/i)).toBeInTheDocument();
+    expect(within(hud).getByText(/cast cooldown/i)).toBeInTheDocument();
+    expect(within(hud).getByText(/stock pressure/i)).toBeInTheDocument();
+    expect(screen.getByTestId("early-nearby-fish")).toHaveTextContent(
+      /120 \/ 120/i,
+    );
+    expect(screen.getByTestId("early-cast-cooldown")).toHaveTextContent(
+      /ready to cast/i,
+    );
+    expect(screen.getByTestId("early-stock-pressure")).toHaveTextContent(
+      /stable/i,
+    );
+  });
+
+  it("updates stock pressure as the pier stock falls", () => {
+    renderAtPath("/play");
+
+    expect(screen.getByTestId("early-stock-pressure")).toHaveTextContent(
+      /stable/i,
+    );
+    expect(screen.getByTestId("early-stock-pressure")).toHaveTextContent(
+      /catch speed 100%, fish value 100%/i,
+    );
+    expect(screen.getByTestId("early-stock-pressure-meter")).toHaveStyle({
+      width: "0%",
+    });
+
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun({
+        ...state.run,
+        regions: {
+          ...state.run.regions,
+          pierCove: {
+            ...state.run.regions.pierCove,
+            stockCurrent: 30,
+          },
+        },
+      });
+    });
+
+    expect(screen.getByTestId("early-stock-pressure")).toHaveTextContent(
+      /strained/i,
+    );
+    expect(screen.getByTestId("early-stock-pressure")).toHaveTextContent(
+      /catch speed 60%, fish value 125%/i,
+    );
+    expect(screen.getByTestId("early-stock-pressure-meter")).toHaveStyle({
+      width: "75%",
+    });
+  });
+
   it("casts through timing windows on the live play route", () => {
     vi.useFakeTimers();
 
@@ -82,8 +146,10 @@ describe("App bootstrap", () => {
     expect(
       screen.getByText(/perfect pull: \+2 fish, \+\$8\./i),
     ).toBeInTheDocument();
-    expect(screen.getByText("Cash in hand: $8")).toBeInTheDocument();
-    expect(screen.getByText("Pier Cove stock: 118 / 120")).toBeInTheDocument();
+    expect(screen.getByTestId("early-cash")).toHaveTextContent("$8");
+    expect(screen.getByTestId("early-nearby-fish")).toHaveTextContent(
+      /118 \/ 120/i,
+    );
 
     act(() => {
       vi.advanceTimersByTime(3_000);
@@ -92,11 +158,13 @@ describe("App bootstrap", () => {
     fireEvent.click(screen.getByRole("button", { name: /cast line/i }));
 
     expect(screen.getByText(/clean cast: \+1 fish, \+\$4\./i)).toBeInTheDocument();
-    expect(screen.getByText("Cash in hand: $12")).toBeInTheDocument();
-    expect(screen.getByText("Pier Cove stock: 118 / 120")).toBeInTheDocument();
-    expect(
-      screen.getByText(/ready in 2\.2s/i),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("early-cash")).toHaveTextContent("$12");
+    expect(screen.getByTestId("early-nearby-fish")).toHaveTextContent(
+      /118 \/ 120/i,
+    );
+    expect(screen.getByTestId("early-cast-cooldown")).toHaveTextContent(
+      /ready in 2\.2s/i,
+    );
   });
 
   it("keeps manual progress when the play route remounts in the same session", () => {
@@ -105,13 +173,15 @@ describe("App bootstrap", () => {
     const firstRender = renderAtPath("/play");
     fireEvent.click(screen.getByRole("button", { name: /cast line/i }));
 
-    expect(screen.getByText(/cash in hand: \$8/i)).toBeInTheDocument();
+    expect(screen.getByTestId("early-cash")).toHaveTextContent("$8");
 
     firstRender.unmount();
     renderAtPath("/play");
 
-    expect(screen.getByText(/cash in hand: \$8/i)).toBeInTheDocument();
-    expect(screen.getByText(/pier cove stock: 118 \/ 120/i)).toBeInTheDocument();
+    expect(screen.getByTestId("early-cash")).toHaveTextContent("$8");
+    expect(screen.getByTestId("early-nearby-fish")).toHaveTextContent(
+      /118 \/ 120/i,
+    );
   });
 
   it("persists live play progress before the page unloads", () => {

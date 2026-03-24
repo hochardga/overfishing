@@ -2,6 +2,7 @@ import { useEffect } from "react";
 
 import { Link } from "react-router-dom";
 
+import { EarlyHud } from "@/components/game/EarlyHud";
 import { GameShell } from "@/components/game/GameShell";
 import { Card } from "@/components/ui/Card";
 import { CastButton } from "@/features/fishing/CastButton";
@@ -54,7 +55,12 @@ export default function PlayPage() {
           </Card>
         </>
       }
-      centerColumn={<CastButton />}
+      centerColumn={
+        <>
+          <EarlyHud run={run} />
+          <CastButton />
+        </>
+      }
       rightColumn={
         <>
           <Card
@@ -68,15 +74,13 @@ export default function PlayPage() {
             </p>
           </Card>
           <Card className="space-y-3">
-            <h2 className="font-heading text-2xl">Run state</h2>
-            <ul className="space-y-2 text-sm text-text-muted">
-              <li>Cash in hand: ${run.cash.toFixed(0)}</li>
-              <li>
-                Pier Cove stock: {run.regions.pierCove.stockCurrent.toFixed(0)} /{" "}
-                {run.regions.pierCove.stockCap.toFixed(0)}
-              </li>
-              <li>Cooldown lives in the deterministic store.</li>
-            </ul>
+            <h2 className="font-heading text-2xl">Reading the rail</h2>
+            <p className="text-sm text-text-muted">
+              Cash lands immediately, nearby stock shows how many fish are left
+              in Pier Cove, cooldown tells you when the line settles, and
+              stock pressure explains why the pull gets slower or richer as the
+              cove thins out.
+            </p>
           </Card>
         </>
       }
