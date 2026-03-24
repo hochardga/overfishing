@@ -3,13 +3,18 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
 import App from "@/App";
-import { createStarterRun, type RunState } from "@/lib/storage/saveSchema";
+import {
+  createFreshSave,
+  createStarterRun,
+  type RunState,
+} from "@/lib/storage/saveSchema";
 import { createGameStore, gameStore } from "@/lib/simulation/gameStore";
 import {
   assignBoatRoute,
@@ -19,6 +24,7 @@ import { syncContractsState } from "@/lib/simulation/reducers/contracts";
 import { syncFacilitiesState } from "@/lib/simulation/reducers/facilities";
 import { syncProcessingState } from "@/lib/simulation/reducers/processing";
 import { purchaseUpgrade } from "@/lib/simulation/reducers/upgrades";
+import { SAVE_STORAGE_KEY } from "@/lib/storage/saveAdapter";
 
 function renderAtPath(pathname: string) {
   window.history.pushState({}, "", pathname);
@@ -279,22 +285,36 @@ describe("App bootstrap", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders a token-backed sample surface", () => {
+  it("renders the launch feature strip on the landing page", () => {
     render(<App />);
 
-    expect(screen.getByTestId("token-sample")).toHaveClass(
-      "bg-surface",
-      "text-text",
-      "shadow-soft",
-    );
+    expect(screen.getByTestId("feature-strip")).toBeInTheDocument();
   });
 
   it("renders a distinct landing page shell at /", () => {
     renderAtPath("/");
 
     expect(
-      screen.getByRole("heading", { name: /coastal pressure, one cast at a time/i }),
+      screen.getByRole("heading", {
+        name: /a browser incremental that turns cozy fishing into industrial extraction/i,
+      }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/catch fish\. build fleets\. normalize collapse\./i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /share prototype feedback/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not create a save file when only booting settings on the landing route", async () => {
+    localStorage.clear();
+
+    renderAtPath("/");
+
+    await waitFor(() => {
+      expect(localStorage.getItem(SAVE_STORAGE_KEY)).toBeNull();
+    });
   });
 
   it("renders a distinct play page shell at /play", () => {
@@ -302,6 +322,63 @@ describe("App bootstrap", () => {
 
     expect(
       screen.getByRole("heading", { name: /harbor operations/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows first-cast onboarding guidance on a fresh run", () => {
+    renderAtPath("/play");
+
+    expect(screen.getByTestId("play-shell-onboarding")).toBeInTheDocument();
+    expect(
+      screen.getByText(/cast a line and see what's biting/i),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a restore skeleton before hydrating an existing save", async () => {
+    localStorage.setItem(
+      SAVE_STORAGE_KEY,
+      JSON.stringify(
+        createFreshSave({
+          run: createFleetOpsRun(),
+        }),
+      ),
+    );
+    act(() => {
+      gameStore.setState({
+        hydrated: false,
+        recoveryMessage: null,
+        run: createStarterRun(),
+      });
+    });
+
+    renderAtPath("/play");
+
+    expect(screen.getByTestId("game-shell-loading")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: /fleet operations/i }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("shows a recovery prompt when the stored save is malformed", async () => {
+    localStorage.setItem(SAVE_STORAGE_KEY, "{ definitely broken json");
+    act(() => {
+      gameStore.setState({
+        hydrated: false,
+        recoveryMessage: null,
+        run: createStarterRun(),
+      });
+    });
+
+    renderAtPath("/play");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("game-shell-recovery")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole("button", { name: /start fresh run/i }),
     ).toBeInTheDocument();
   });
 
@@ -435,6 +512,14 @@ describe("App bootstrap", () => {
     renderAtPath("/play");
 
     expect(screen.getByTestId("status-rail")).toBeInTheDocument();
+    expect(screen.getByTestId("status-rail")).toHaveClass("max-[959px]:sticky");
+    expect(screen.getByTestId("status-rail-grid")).toHaveClass("grid-cols-2");
+    expect(screen.getByTestId("status-rail-grid")).toHaveClass(
+      "min-[720px]:grid-cols-4",
+    );
+    expect(screen.getByTestId("game-shell-grid")).toHaveClass(
+      "min-[960px]:grid-cols-[1.05fr_1.35fr_1fr]",
+    );
     expect(screen.getByLabelText("primary column")).toBeInTheDocument();
     expect(screen.getByLabelText("active panel column")).toBeInTheDocument();
     expect(screen.getByLabelText("operations column")).toBeInTheDocument();
@@ -634,6 +719,19 @@ describe("App bootstrap", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the contract board empty state before processing comes online", () => {
+    act(() => {
+      gameStore.getState().replaceRun(createFleetOpsRun());
+    });
+
+    renderAtPath("/play");
+
+    expect(screen.getByTestId("contract-board")).toBeInTheDocument();
+    expect(
+      screen.getByText(/contracts unlock after processing is online/i),
+    ).toBeInTheDocument();
+  });
+
   it("keeps a dockside revenue control reachable after Fleet Ops unlocks", () => {
     act(() => {
       gameStore.getState().replaceRun(createFleetOpsRun());
@@ -701,6 +799,66 @@ describe("App bootstrap", () => {
     );
 
     expect(gameStore.getState().run.contracts.restaurant.status).toBe("active");
+  });
+
+  it("shows the regional oversight empty state before offshore expansion", () => {
+    act(() => {
+      gameStore.getState().replaceRun(createProcessingContractsRun());
+    });
+
+    renderAtPath("/play");
+
+    expect(screen.getByTestId("regions-panel")).toBeInTheDocument();
+    expect(
+      screen.getByText(/regional oversight unlocks once your fleet expands offshore/i),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a stale-data warning if regional extraction has no unlocked waters", () => {
+    const starterRun = createStarterRun();
+
+    act(() => {
+      gameStore.getState().replaceRun({
+        ...starterRun,
+        phase: "regionalExtraction",
+        uiTone: "industrial",
+        trust: 54,
+        oceanHealth: 61,
+        regions: {
+          pierCove: {
+            ...starterRun.regions.pierCove,
+            unlocked: false,
+          },
+          kelpBed: {
+            ...starterRun.regions.kelpBed,
+            unlocked: false,
+          },
+          offshoreShelf: {
+            ...starterRun.regions.offshoreShelf,
+            unlocked: false,
+          },
+        },
+        unlocks: {
+          ...starterRun.unlocks,
+          tabs: ["harbor", "fleet", "processing", "regions", "settings"],
+          phasesSeen: [
+            "quietPier",
+            "skiffOperator",
+            "docksideGear",
+            "fleetOps",
+            "processingContracts",
+            "regionalExtraction",
+          ],
+        },
+      });
+    });
+
+    renderAtPath("/play");
+
+    expect(screen.getByTestId("regions-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("regions-panel")).toHaveTextContent(
+      /regional telemetry is stale/i,
+    );
   });
 
   it("shows the regions panel and completes a license renewal reset", async () => {
@@ -815,6 +973,18 @@ describe("App bootstrap", () => {
     });
   });
 
+  it("applies reduced motion and UI scale to the document runtime", async () => {
+    const user = userEvent.setup();
+
+    renderAtPath("/settings");
+
+    await user.click(screen.getByRole("checkbox", { name: /reduced motion/i }));
+    await user.selectOptions(screen.getByLabelText(/ui scale/i), "large");
+
+    expect(document.documentElement).toHaveAttribute("data-reduced-motion", "true");
+    expect(document.documentElement).toHaveAttribute("data-ui-scale", "large");
+  });
+
   it("persists settings changes across remounts", async () => {
     const user = userEvent.setup();
     const { unmount } = renderAtPath("/settings");
@@ -831,5 +1001,7 @@ describe("App bootstrap", () => {
     expect(
       screen.getByRole("checkbox", { name: /analytics consent/i }),
     ).toBeChecked();
+    expect(document.documentElement).toHaveAttribute("data-reduced-motion", "true");
+    expect(document.documentElement).toHaveAttribute("data-ui-scale", "large");
   });
 });

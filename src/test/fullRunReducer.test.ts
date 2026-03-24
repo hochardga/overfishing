@@ -10,6 +10,7 @@ import {
   isLicenseRenewalReady,
   renewLicenseSaveData,
 } from "@/lib/simulation/reducers/prestige";
+import { phaseUnlockRules } from "@/lib/simulation/reducers/unlocks";
 
 function createRenewalReadySave(): SaveFile {
   const starterRun = createStarterRun();
@@ -158,6 +159,75 @@ describe("license renewal", () => {
 
     expect(run.phase).toBe("regionalExtraction");
     expect(isLicenseRenewalReady(run)).toBe(true);
+  });
+
+  it("keeps Regional Extraction as a real late-game buffer before renewal", () => {
+    const regionalRule = phaseUnlockRules.find(
+      (rule) => rule.phaseId === "regionalExtraction",
+    );
+
+    expect(regionalRule).toMatchObject({
+      requiredLifetimeFishLanded: 950,
+      requiredLifetimeRevenue: 5_800,
+    });
+
+    const starterRun = createStarterRun();
+    const lateGameRun: RunState = {
+      ...starterRun,
+      phase: "regionalExtraction",
+      uiTone: "industrial",
+      lifetimeFishLanded: 950,
+      lifetimeRevenue: 5_800,
+      oceanHealth: 69,
+      unlocks: {
+        ...starterRun.unlocks,
+        tabs: ["harbor", "fleet", "processing", "regions", "settings"],
+        upgrades: [
+          "harborMap",
+          "rustySkiff",
+          "hireCousin",
+          "dockLease",
+          "usedWorkSkiff",
+          "deckhandHire",
+          "processingShed",
+          "flashFreezer",
+          "canneryLine",
+        ],
+        phasesSeen: [
+          "quietPier",
+          "skiffOperator",
+          "docksideGear",
+          "fleetOps",
+          "processingContracts",
+          "regionalExtraction",
+        ],
+        pendingPhaseModalIds: [],
+        dismissedPhaseModalIds: [],
+      },
+    };
+
+    expect(isLicenseRenewalReady(lateGameRun)).toBe(false);
+    expect(
+      isLicenseRenewalReady({
+        ...lateGameRun,
+        lifetimeFishLanded: 1_119,
+        lifetimeRevenue: 6_800,
+      }),
+    ).toBe(false);
+    expect(
+      isLicenseRenewalReady({
+        ...lateGameRun,
+        lifetimeFishLanded: 1_120,
+        lifetimeRevenue: 6_799,
+      }),
+    ).toBe(false);
+    expect(
+      isLicenseRenewalReady({
+        ...lateGameRun,
+        lifetimeFishLanded: 1_120,
+        lifetimeRevenue: 6_800,
+      }),
+    ).toBe(true);
   });
 
   it("resets the run while preserving only carryover meta bonuses", () => {

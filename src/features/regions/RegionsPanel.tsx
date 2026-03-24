@@ -24,31 +24,41 @@ export function RegionsPanel({ run }: RegionsPanelProps) {
         <p className="text-sm text-text-muted">{regions.intro}</p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl bg-surface-raised px-4 py-3">
-          <p className="text-xs uppercase tracking-[0.16em] text-secondary">
-            Trust
-          </p>
-          <p className="mt-2 font-heading text-xl text-text">{regions.trustValue}</p>
-        </div>
-        <div className="rounded-2xl bg-surface-raised px-4 py-3">
-          <p className="text-xs uppercase tracking-[0.16em] text-secondary">
-            Ocean health
-          </p>
-          <p className="mt-2 font-heading text-xl text-text">
-            {regions.oceanHealthValue}
-          </p>
-        </div>
-      </div>
+      {regions.kind === "ready" ? (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl bg-surface-raised px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.16em] text-secondary">
+                Trust
+              </p>
+              <p className="mt-2 font-heading text-xl text-text">
+                {regions.trustValue}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-surface-raised px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.16em] text-secondary">
+                Ocean health
+              </p>
+              <p className="mt-2 font-heading text-xl text-text">
+                {regions.oceanHealthValue}
+              </p>
+            </div>
+          </div>
 
-      <div className="grid gap-3">
-        {regions.items.map((item) => (
-          <RegionCard
-            item={item}
-            key={item.id}
-          />
-        ))}
-      </div>
+          <div className="grid gap-3">
+            {regions.items?.map((item) => (
+              <RegionCard
+                item={item}
+                key={item.id}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="rounded-2xl bg-surface-raised px-4 py-3">
+          <p className="text-sm text-text-muted">{regions.detail}</p>
+        </div>
+      )}
     </Card>
   );
 }

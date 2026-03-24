@@ -24,14 +24,20 @@ export function ContractBoard({ run }: ContractBoardProps) {
         <p className="text-sm text-text-muted">{contracts.intro}</p>
       </div>
 
-      <div className="grid gap-3">
-        {contracts.cards.map((card) => (
-          <ContractCard
-            card={card}
-            key={card.id}
-          />
-        ))}
-      </div>
+      {contracts.kind === "ready" ? (
+        <div className="grid gap-3">
+          {contracts.cards?.map((card) => (
+            <ContractCard
+              card={card}
+              key={card.id}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-2xl bg-surface-raised px-4 py-3">
+          <p className="text-sm text-text-muted">{contracts.detail}</p>
+        </div>
+      )}
     </Card>
   );
 }
