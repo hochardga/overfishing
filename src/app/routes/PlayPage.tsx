@@ -7,6 +7,7 @@ import { GameShell } from "@/components/game/GameShell";
 import { Card } from "@/components/ui/Card";
 import { SkiffPanel } from "@/features/fleet/SkiffPanel";
 import { CastButton } from "@/features/fishing/CastButton";
+import { GearPanel } from "@/features/gear/GearPanel";
 import { UpgradeShop } from "@/features/upgrades/UpgradeShop";
 import { useGameStore } from "@/lib/simulation/gameStore";
 import { selectStatusRailItems } from "@/lib/simulation/selectors";
@@ -63,6 +64,9 @@ export default function PlayPage() {
           <CastButton />
           {run.unlocks.phasesSeen.includes("skiffOperator") ? (
             <SkiffPanel run={run} />
+          ) : null}
+          {run.unlocks.phasesSeen.includes("docksideGear") ? (
+            <GearPanel run={run} />
           ) : null}
         </>
       }

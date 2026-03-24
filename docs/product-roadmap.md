@@ -86,7 +86,7 @@
   Files: `src/features/fleet/SkiffPanel.tsx`, `src/lib/simulation/reducers/skiffTrips.ts`, `src/lib/economy/regions.ts`
   Notes: Implement Harbor Map, Rusty Skiff, Outboard Motor, Ice Chest, and Rod Rack. Verify: fishing trips consume fuel, fill hold, and pay out correctly.
 
-- [ ] **TASK-013** — Add dock storage, decay, and passive gear slot logic
+- [x] **TASK-013** — Add dock storage, decay, and passive gear slot logic
   Files: `src/features/gear/GearPanel.tsx`, `src/lib/simulation/reducers/storage.ts`, `src/lib/simulation/reducers/passiveGear.ts`
   Notes: Support dock storage cap, value decay, gear slots, and pause-on-full behavior per FR-006 and FR-007. Verify: full storage stops passive output instead of losing fish.
 

@@ -15,12 +15,16 @@ import {
   type ManualCastResult,
 } from "@/lib/simulation/reducers/manualFishing";
 import {
+  syncPassiveGearState,
+} from "@/lib/simulation/reducers/passiveGear";
+import {
   refuelSkiff as refuelSkiffReducer,
   startSkiffTrip as startSkiffTripReducer,
   syncSkiffState,
   type RefuelSkiffResult,
   type StartSkiffTripResult,
 } from "@/lib/simulation/reducers/skiffTrips";
+import { syncStorageState } from "@/lib/simulation/reducers/storage";
 import {
   purchaseUpgrade as purchaseUpgradeReducer,
   type UpgradePurchaseResult,
@@ -57,7 +61,9 @@ const createState = (initialRun: RunState = createStarterRun()) =>
     };
 
     const normalizeRun = (run: RunState) =>
-      syncSkiffState(applyUnlockChecks(run));
+      syncPassiveGearState(
+        syncStorageState(syncSkiffState(applyUnlockChecks(run))),
+      );
 
     const syncRunToTime = (nowMs: number) => {
       if (simulationAnchorMs === null) {

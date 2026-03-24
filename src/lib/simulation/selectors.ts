@@ -376,3 +376,59 @@ export function selectSkiffPanelState(run: RunState): SkiffPanelState {
     holdProgress,
   };
 }
+
+export type GearPanelState = {
+  title: string;
+  intro: string;
+  storageValue: string;
+  storageDetail: string;
+  storageProgress: number;
+  decayValue: string;
+  decayDetail: string;
+  decayProgress: number;
+  slotValue: string;
+  slotDetail: string;
+  slotProgress: number;
+};
+
+function formatPlural(value: number, singular: string, plural: string) {
+  return `${value} ${value === 1 ? singular : plural}`;
+}
+
+export function selectGearPanelState(run: RunState): GearPanelState {
+  const slotsUsed = Object.values(run.gear).filter((gear) => gear.active).length;
+  const blockedGearCount = Object.values(run.gear).filter(
+    (gear) => gear.active && gear.blockedByStorage,
+  ).length;
+  const openSlots = Math.max(0, run.facilities.gearSlotCap - slotsUsed);
+  const storageProgress =
+    run.facilities.dockStorageCap > 0
+      ? run.facilities.dockStorageRawFish / run.facilities.dockStorageCap
+      : 0;
+
+  return {
+    title: "Dock storage",
+    intro: "Passive rigs feed raw fish into the dock, so storage becomes the next bottleneck.",
+    storageValue: `${run.facilities.dockStorageRawFish.toFixed(0)} / ${run.facilities.dockStorageCap.toFixed(0)}`,
+    storageDetail:
+      run.facilities.dockStorageRawFish >= run.facilities.dockStorageCap
+        ? "Dock crates are packed. Passive rigs pause instead of losing fish."
+        : "Passive catch routes straight into dock crates for now.",
+    storageProgress,
+    decayValue: `${Math.round(run.facilities.dockStorageQuality * 100)}%`,
+    decayDetail:
+      run.facilities.dockStorageRawFish > 0
+        ? "Raw fish loses 10% of its value every 60 seconds at the dock."
+        : "No raw fish is waiting in dock storage right now.",
+    decayProgress: 1 - run.facilities.dockStorageQuality,
+    slotValue: `${slotsUsed} / ${run.facilities.gearSlotCap}`,
+    slotDetail:
+      blockedGearCount > 0
+        ? `${formatPlural(blockedGearCount, "gear rig", "gear rigs")} paused by full storage.`
+        : `${formatPlural(openSlots, "slot", "slots")} open for passive gear.`,
+    slotProgress:
+      run.facilities.gearSlotCap > 0
+        ? slotsUsed / run.facilities.gearSlotCap
+        : 0,
+  };
+}

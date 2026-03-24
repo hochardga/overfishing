@@ -40,6 +40,42 @@ function createSkiffOperatorRun() {
   return run;
 }
 
+function createDocksideGearRun() {
+  const starterRun = createStarterRun();
+
+  return {
+    ...starterRun,
+    phase: "docksideGear" as const,
+    lifetimeFishLanded: 150,
+    lifetimeRevenue: 750,
+    facilities: {
+      ...starterRun.facilities,
+      dockStorageCap: 20,
+      dockStorageRawFish: 20,
+      dockStorageQuality: 0.9,
+      gearSlotCap: 2,
+    },
+    gear: {
+      crabPot01: {
+        id: "crabPot01",
+        kind: "crabPot" as const,
+        assignedRegionId: "pierCove" as const,
+        outputPerSecond: 0.18,
+        collectionIntervalSeconds: 120,
+        secondsSinceCollection: 0,
+        active: true,
+        blockedByStorage: true,
+      },
+    },
+    unlocks: {
+      ...starterRun.unlocks,
+      tabs: ["harbor", "fleet", "settings"],
+      upgrades: ["harborMap", "rustySkiff"],
+      phasesSeen: ["quietPier", "skiffOperator", "docksideGear"],
+    },
+  };
+}
+
 describe("App bootstrap", () => {
   beforeEach(() => {
     gameStore.getState().stopSimulationLoop();
@@ -310,6 +346,26 @@ describe("App bootstrap", () => {
     expect(
       within(panel).getByRole("button", { name: /run kelp bed trip/i }),
     ).toBeInTheDocument();
+  });
+
+  it("renders dock storage pressure and gear slot usage once Dockside Gear is unlocked", () => {
+    act(() => {
+      gameStore.getState().replaceRun(createDocksideGearRun());
+    });
+
+    renderAtPath("/play");
+
+    const panel = screen.getByTestId("gear-panel");
+
+    expect(
+      within(panel).getByRole("heading", { name: /dock storage/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("gear-storage")).toHaveTextContent(/20 \/ 20/i);
+    expect(screen.getByTestId("gear-slots")).toHaveTextContent(/1 \/ 2/i);
+    expect(
+      within(panel).getByText(/1 gear rig paused by full storage/i),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("gear-decay")).toHaveTextContent(/90%/i);
   });
 
   it("casts through timing windows on the live play route", () => {

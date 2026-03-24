@@ -67,6 +67,7 @@ export const gearStateSchema = z.object({
   collectionIntervalSeconds: z.number(),
   secondsSinceCollection: z.number(),
   active: z.boolean(),
+  blockedByStorage: z.boolean().default(false),
 });
 
 export const boatStateSchema = z.object({
@@ -99,6 +100,8 @@ export const processingQueueStateSchema = z.object({
 export const facilityStateSchema = z.object({
   dockStorageCap: z.number(),
   dockStorageRawFish: z.number(),
+  dockStorageQuality: z.number().default(1),
+  gearSlotCap: z.number().default(2),
   coldStorageCap: z.number(),
   coldStorageRawFish: z.number(),
   unloadLanes: z.number(),
@@ -217,8 +220,10 @@ export function createStarterRun(): RunState {
     gear: {},
     boats: {},
     facilities: {
-      dockStorageCap: 25,
+      dockStorageCap: 20,
       dockStorageRawFish: 0,
+      dockStorageQuality: 1,
+      gearSlotCap: 2,
       coldStorageCap: 0,
       coldStorageRawFish: 0,
       unloadLanes: 1,
