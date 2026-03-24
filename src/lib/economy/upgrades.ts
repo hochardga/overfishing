@@ -1,4 +1,4 @@
-import type { PhaseId } from "@/lib/storage/saveSchema";
+import type { PhaseId, RegionId } from "@/lib/storage/saveSchema";
 
 export type UpgradeId = keyof typeof upgradeDefinitions;
 
@@ -10,6 +10,18 @@ export type ManualUpgradeEffects = {
   sellValueMultiplier: number;
 };
 
+export type PassiveGearUpgradeEffects = {
+  gearId: string;
+  kind: "crabPot" | "longline";
+  assignedRegionId: RegionId;
+  outputPerSecond: number;
+  collectionIntervalSeconds: number;
+};
+
+export type HelperUpgradeEffects = {
+  autoHaulIntervalSeconds: number;
+};
+
 type UpgradeDefinition = {
   id: UpgradeId;
   label: string;
@@ -17,6 +29,8 @@ type UpgradeDefinition = {
   cost: number;
   description: string;
   effects: Partial<ManualUpgradeEffects>;
+  passiveGear?: PassiveGearUpgradeEffects;
+  helper?: HelperUpgradeEffects;
 };
 
 export const upgradeDefinitions = {
@@ -109,6 +123,47 @@ export const upgradeDefinitions = {
     cost: 220,
     description: "Prep the skiff for faster on-water hauling once Phase 2 opens.",
     effects: {},
+  },
+  crabPot: {
+    id: "crabPot",
+    label: "Crab Pot",
+    phase: "docksideGear",
+    cost: 300,
+    description: "A steady passive rig that fills a single dockside gear slot.",
+    effects: {},
+    passiveGear: {
+      gearId: "crabPot01",
+      kind: "crabPot",
+      assignedRegionId: "pierCove",
+      outputPerSecond: 0.18,
+      collectionIntervalSeconds: 120,
+    },
+  },
+  longline: {
+    id: "longline",
+    label: "Longline",
+    phase: "docksideGear",
+    cost: 450,
+    description: "A hungrier passive line that pays back faster if you can haul it.",
+    effects: {},
+    passiveGear: {
+      gearId: "longline01",
+      kind: "longline",
+      assignedRegionId: "pierCove",
+      outputPerSecond: 0.3,
+      collectionIntervalSeconds: 120,
+    },
+  },
+  hireCousin: {
+    id: "hireCousin",
+    label: "Hire Cousin",
+    phase: "docksideGear",
+    cost: 550,
+    description: "Auto-hauls passive gear every 90 seconds so the dock can breathe.",
+    effects: {},
+    helper: {
+      autoHaulIntervalSeconds: 90,
+    },
   },
 } as const satisfies Record<string, UpgradeDefinition>;
 

@@ -15,6 +15,8 @@ import {
   type ManualCastResult,
 } from "@/lib/simulation/reducers/manualFishing";
 import {
+  collectPassiveGear as collectPassiveGearReducer,
+  type CollectPassiveGearResult,
   syncPassiveGearState,
 } from "@/lib/simulation/reducers/passiveGear";
 import {
@@ -44,6 +46,7 @@ export type GameStoreState = {
   purchaseUpgrade: (upgradeId: string) => UpgradePurchaseResult;
   startSkiffTrip: (boatId: string, regionId: RegionId) => StartSkiffTripResult;
   refuelSkiff: (boatId: string) => RefuelSkiffResult;
+  collectPassiveGear: (gearId: string) => CollectPassiveGearResult;
 };
 
 const createState = (initialRun: RunState = createStarterRun()) =>
@@ -215,6 +218,23 @@ const createState = (initialRun: RunState = createStarterRun()) =>
         const syncedRun = syncRunToTime(Date.now());
         const result = refuelSkiffReducer(syncedRun, {
           boatId,
+        });
+        const normalizedRun = normalizeRun(result.run);
+
+        set({
+          run: normalizedRun,
+        });
+        persistRun(normalizedRun);
+
+        return {
+          ...result,
+          run: normalizedRun,
+        };
+      },
+      collectPassiveGear: (gearId) => {
+        const syncedRun = syncRunToTime(Date.now());
+        const result = collectPassiveGearReducer(syncedRun, {
+          gearId,
         });
         const normalizedRun = normalizeRun(result.run);
 

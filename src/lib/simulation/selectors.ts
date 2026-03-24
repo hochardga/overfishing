@@ -9,6 +9,7 @@ import {
   getManualCastCycleMs,
   resolveManualCastZoneHit,
 } from "@/lib/simulation/reducers/manualFishing";
+import { getAutoHaulIntervalSeconds } from "@/lib/simulation/reducers/helpers";
 import { getSkiffTripFuelCost } from "@/lib/simulation/reducers/skiffTrips";
 import { phaseUnlockRules } from "@/lib/simulation/reducers/unlocks";
 
@@ -389,10 +390,25 @@ export type GearPanelState = {
   slotValue: string;
   slotDetail: string;
   slotProgress: number;
+  items: GearCardState[];
 };
 
 function formatPlural(value: number, singular: string, plural: string) {
   return `${value} ${value === 1 ? singular : plural}`;
+}
+
+export type GearCardState = {
+  id: string;
+  label: string;
+  detail: string;
+  bufferedCatchText: string;
+  statusText: string;
+  actionLabel: string;
+  actionDisabled: boolean;
+};
+
+function getGearLabel(kind: RunState["gear"][string]["kind"]) {
+  return kind === "longline" ? "Longline" : "Crab Pot";
 }
 
 export function selectGearPanelState(run: RunState): GearPanelState {
@@ -401,10 +417,36 @@ export function selectGearPanelState(run: RunState): GearPanelState {
     (gear) => gear.active && gear.blockedByStorage,
   ).length;
   const openSlots = Math.max(0, run.facilities.gearSlotCap - slotsUsed);
+  const autoHaulIntervalSeconds = getAutoHaulIntervalSeconds(run);
   const storageProgress =
     run.facilities.dockStorageCap > 0
       ? run.facilities.dockStorageRawFish / run.facilities.dockStorageCap
       : 0;
+  const items = Object.values(run.gear)
+    .filter((gear) => gear.active)
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .map((gear) => {
+      const gearLabel = getGearLabel(gear.kind);
+      const secondsUntilStall = Math.max(
+        0,
+        gear.collectionIntervalSeconds - gear.secondsSinceCollection,
+      );
+
+      return {
+        id: gear.id,
+        label: gearLabel,
+        detail: `${gear.outputPerSecond.toFixed(2)} fish/sec into dock storage after haul.`,
+        bufferedCatchText: `${gear.bufferedCatch.toFixed(1)} fish buffered`,
+        statusText: gear.blockedByStorage
+          ? "Dock storage is full, so this rig is paused."
+          : autoHaulIntervalSeconds !== null
+            ? `Hire Cousin auto-hauls every ${autoHaulIntervalSeconds}s.`
+            : `Next stall in ${secondsUntilStall.toFixed(0)}s if you do not haul it.`,
+        actionLabel: `Haul ${gearLabel}`,
+        actionDisabled:
+          autoHaulIntervalSeconds !== null || gear.bufferedCatch <= 0,
+      };
+    });
 
   return {
     title: "Dock storage",
@@ -430,5 +472,6 @@ export function selectGearPanelState(run: RunState): GearPanelState {
       run.facilities.gearSlotCap > 0
         ? slotsUsed / run.facilities.gearSlotCap
         : 0,
+    items,
   };
 }

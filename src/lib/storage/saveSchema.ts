@@ -66,6 +66,7 @@ export const gearStateSchema = z.object({
   outputPerSecond: z.number(),
   collectionIntervalSeconds: z.number(),
   secondsSinceCollection: z.number(),
+  bufferedCatch: z.number().default(0),
   active: z.boolean(),
   blockedByStorage: z.boolean().default(false),
 });

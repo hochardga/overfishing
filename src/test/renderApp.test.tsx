@@ -63,6 +63,7 @@ function createDocksideGearRun() {
         outputPerSecond: 0.18,
         collectionIntervalSeconds: 120,
         secondsSinceCollection: 0,
+        bufferedCatch: 0,
         active: true,
         blockedByStorage: true,
       },
@@ -74,6 +75,23 @@ function createDocksideGearRun() {
       phasesSeen: ["quietPier", "skiffOperator", "docksideGear"],
     },
   };
+}
+
+function createPassiveGearRun() {
+  let run = {
+    ...createDocksideGearRun(),
+    cash: 2_000,
+    facilities: {
+      ...createDocksideGearRun().facilities,
+      dockStorageRawFish: 0,
+      dockStorageQuality: 1,
+    },
+    gear: {},
+  };
+
+  run = purchaseUpgrade(run, "crabPot").run;
+
+  return run;
 }
 
 describe("App bootstrap", () => {
@@ -366,6 +384,33 @@ describe("App bootstrap", () => {
       within(panel).getByText(/1 gear rig paused by full storage/i),
     ).toBeInTheDocument();
     expect(screen.getByTestId("gear-decay")).toHaveTextContent(/90%/i);
+  });
+
+  it("renders gear cards and lets a crab pot haul buffered catch into storage", async () => {
+    const user = userEvent.setup();
+
+    act(() => {
+      gameStore.getState().replaceRun(createPassiveGearRun());
+    });
+
+    renderAtPath("/play");
+
+    const panel = screen.getByTestId("gear-panel");
+
+    expect(
+      within(panel).getByRole("heading", { name: /crab pot/i }),
+    ).toBeInTheDocument();
+
+    act(() => {
+      gameStore.getState().tick(60);
+    });
+
+    expect(screen.getByTestId("gear-storage")).toHaveTextContent(/0 \/ 20/i);
+
+    await user.click(screen.getByRole("button", { name: /haul crab pot/i }));
+
+    expect(gameStore.getState().run.facilities.dockStorageRawFish).toBeCloseTo(10.8);
+    expect(screen.getByTestId("gear-storage")).toHaveTextContent(/11 \/ 20/i);
   });
 
   it("casts through timing windows on the live play route", () => {

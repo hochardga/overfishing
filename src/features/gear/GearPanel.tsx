@@ -2,6 +2,7 @@ import type { RunState } from "@/lib/storage/saveSchema";
 
 import { Card } from "@/components/ui/Card";
 import { MeterCard } from "@/components/ui/MeterCard";
+import { GearCard } from "@/features/gear/GearCard";
 import { selectGearPanelState } from "@/lib/simulation/selectors";
 
 type GearPanelProps = {
@@ -55,6 +56,21 @@ export function GearPanel({ run }: GearPanelProps) {
           />
         </div>
       </div>
+
+      {gear.items.length > 0 ? (
+        <div className="grid gap-3">
+          {gear.items.map((item) => (
+            <GearCard
+              item={item}
+              key={item.id}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-2xl bg-surface-raised px-4 py-3 text-sm text-text-muted">
+          No passive gear is deployed yet. The dock is ready when you are.
+        </p>
+      )}
     </Card>
   );
 }

@@ -90,7 +90,7 @@
   Files: `src/features/gear/GearPanel.tsx`, `src/lib/simulation/reducers/storage.ts`, `src/lib/simulation/reducers/passiveGear.ts`
   Notes: Support dock storage cap, value decay, gear slots, and pause-on-full behavior per FR-006 and FR-007. Verify: full storage stops passive output instead of losing fish.
 
-- [ ] **TASK-014** — Add Crab Pot, Longline, and helper automation flows
+- [x] **TASK-014** — Add Crab Pot, Longline, and helper automation flows
   Files: `src/features/gear/GearCard.tsx`, `src/lib/economy/upgrades.ts`, `src/lib/simulation/reducers/helpers.ts`
   Notes: Encode collection intervals, helper timing, and output rates from the initial design sheet. Verify: helper-owned gear auto-hauls at the configured cadence.
 
