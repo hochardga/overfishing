@@ -4,16 +4,26 @@ import { Card } from "@/components/ui/Card";
 import { MeterCard } from "@/components/ui/MeterCard";
 import {
   selectEarlyHudState,
-  selectPlayShellVisibility,
+  type PlayShellVisibilityModel,
 } from "@/lib/simulation/selectors";
 
 type EarlyHudProps = {
   run: RunState;
+  visibleCards?: PlayShellVisibilityModel["earlyHudCards"];
 };
 
-export function EarlyHud({ run }: EarlyHudProps) {
+const defaultVisibleCards: PlayShellVisibilityModel["earlyHudCards"] = {
+  cash: true,
+  nearbyFish: true,
+  cooldown: true,
+  stockPressure: true,
+};
+
+export function EarlyHud({
+  run,
+  visibleCards = defaultVisibleCards,
+}: EarlyHudProps) {
   const hud = selectEarlyHudState(run);
-  const visibility = selectPlayShellVisibility(run);
 
   return (
     <Card
@@ -34,7 +44,7 @@ export function EarlyHud({ run }: EarlyHudProps) {
         </p>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {visibility.earlyHudCards.cash ? (
+        {visibleCards.cash ? (
           <MeterCard
             data-testid="early-cash"
             detail={hud.cash.detail}
@@ -42,7 +52,7 @@ export function EarlyHud({ run }: EarlyHudProps) {
             value={hud.cash.value}
           />
         ) : null}
-        {visibility.earlyHudCards.nearbyFish ? (
+        {visibleCards.nearbyFish ? (
           <MeterCard
             data-testid="early-nearby-fish"
             detail={hud.nearbyFish.detail}
@@ -52,7 +62,7 @@ export function EarlyHud({ run }: EarlyHudProps) {
             value={hud.nearbyFish.value}
           />
         ) : null}
-        {visibility.earlyHudCards.cooldown ? (
+        {visibleCards.cooldown ? (
           <MeterCard
             data-testid="early-cast-cooldown"
             detail={hud.cooldown.detail}
@@ -62,7 +72,7 @@ export function EarlyHud({ run }: EarlyHudProps) {
             value={hud.cooldown.value}
           />
         ) : null}
-        {visibility.earlyHudCards.stockPressure ? (
+        {visibleCards.stockPressure ? (
           <MeterCard
             data-testid="early-stock-pressure"
             detail={hud.stockPressure.detail}

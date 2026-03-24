@@ -1,5 +1,6 @@
 import {
   createDefaultMetaProgress,
+  type DiscoveryStep,
   type MetaProgressState,
   type RunState,
 } from "@/lib/storage/saveSchema";
@@ -23,7 +24,7 @@ export type PlayShellVisibilityModel = {
   castButtonMode: "compact" | "full";
 };
 
-function hasDiscoveryStep(run: RunState, step: string) {
+function hasDiscoveryStep(run: RunState, step: DiscoveryStep) {
   return run.unlocks.discoverySteps.includes(step);
 }
 

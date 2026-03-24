@@ -40,7 +40,12 @@ function PlayShellVisibilityHarness({
         <section>Harbor operations</section>
       ) : null}
       <button type="button">Cast line</button>
-      {shouldRenderEarlyHud ? <EarlyHud run={run} /> : null}
+      {shouldRenderEarlyHud ? (
+        <EarlyHud
+          run={run}
+          visibleCards={visibility.earlyHudCards}
+        />
+      ) : null}
       {visibility.showRightColumnNotes ? <section>Dock notes</section> : null}
       {visibility.showShopRevealCue ? (
         <section data-testid="shop-reveal-cue">Shop reveal cue</section>
@@ -106,5 +111,18 @@ describe("play shell compact reveal", () => {
     expect(screen.queryByTestId("early-nearby-fish")).not.toBeInTheDocument();
     expect(screen.queryByTestId("early-cast-cooldown")).not.toBeInTheDocument();
     expect(screen.queryByTestId("early-stock-pressure")).not.toBeInTheDocument();
+  });
+
+  it("shows all early-hud cards when no visibility override is provided", () => {
+    const meta = createDefaultMetaProgress();
+    const run = createStarterRun(meta);
+
+    render(<EarlyHud run={run} />);
+
+    expect(screen.getByTestId("early-hud")).toBeInTheDocument();
+    expect(screen.getByTestId("early-cash")).toBeInTheDocument();
+    expect(screen.getByTestId("early-nearby-fish")).toBeInTheDocument();
+    expect(screen.getByTestId("early-cast-cooldown")).toBeInTheDocument();
+    expect(screen.getByTestId("early-stock-pressure")).toBeInTheDocument();
   });
 });
