@@ -4,6 +4,7 @@ import {
 import {
   syncDiscoveryState,
 } from "@/lib/simulation/reducers/discovery";
+import { selectPlayShellVisibility } from "@/lib/simulation/selectors";
 import {
   loadOrCreateSaveResult,
   SAVE_STORAGE_KEY,
@@ -52,6 +53,15 @@ function createDiscoveryTestState(
     meta,
     run: createStarterRun(meta),
   };
+}
+
+function createVisibilityScenario(
+  buildRun: (run: RunState) => RunState,
+  metaOverrides: Partial<MetaProgressState> = {},
+) {
+  const { meta, run } = createDiscoveryTestState(metaOverrides);
+
+  return syncDiscoveryState(buildRun(run), meta);
 }
 
 const quietPierUpgradeCosts = Object.values(upgradeDefinitions)
@@ -214,6 +224,170 @@ describe("syncDiscoveryState", () => {
       ...expandedShellDiscoverySteps,
     ]);
     expect(secondPass.meta.unlockFlags).toEqual(["quietPierIntroSeen"]);
+  });
+});
+
+describe("selectPlayShellVisibility", () => {
+  it("returns the compact onboarding-only shell for a fresh run", () => {
+    const { meta, run } = createDiscoveryTestState();
+
+    expect(selectPlayShellVisibility(run, meta)).toEqual({
+      shellMode: "compact",
+      showOnboardingCard: true,
+      showStatusRail: false,
+      showProgressSummary: false,
+      showLeftColumnCards: false,
+      showRightColumnNotes: false,
+      showShopRevealCue: false,
+      showUpgradeShop: false,
+      showReadingTheRailCard: false,
+      earlyHudCards: {
+        cash: false,
+        nearbyFish: false,
+        cooldown: false,
+        stockPressure: false,
+      },
+      castButtonMode: "compact",
+    });
+  });
+
+  it("hides onboarding and reveals only cash after the first successful cast", () => {
+    const { run, meta } = createVisibilityScenario((starterRun) => ({
+      ...starterRun,
+      lifetimeFishLanded: 1,
+    }));
+
+    expect(selectPlayShellVisibility(run, meta)).toEqual({
+      shellMode: "compact",
+      showOnboardingCard: false,
+      showStatusRail: false,
+      showProgressSummary: false,
+      showLeftColumnCards: false,
+      showRightColumnNotes: false,
+      showShopRevealCue: false,
+      showUpgradeShop: false,
+      showReadingTheRailCard: false,
+      earlyHudCards: {
+        cash: true,
+        nearbyFish: false,
+        cooldown: false,
+        stockPressure: false,
+      },
+      castButtonMode: "compact",
+    });
+  });
+
+  it("reveals nearby fish and cooldown once three fish have been landed", () => {
+    const { run, meta } = createVisibilityScenario((starterRun) => ({
+      ...starterRun,
+      lifetimeFishLanded: 3,
+    }));
+
+    expect(selectPlayShellVisibility(run, meta)).toEqual({
+      shellMode: "compact",
+      showOnboardingCard: false,
+      showStatusRail: false,
+      showProgressSummary: false,
+      showLeftColumnCards: false,
+      showRightColumnNotes: false,
+      showShopRevealCue: false,
+      showUpgradeShop: false,
+      showReadingTheRailCard: false,
+      earlyHudCards: {
+        cash: true,
+        nearbyFish: true,
+        cooldown: true,
+        stockPressure: false,
+      },
+      castButtonMode: "compact",
+    });
+  });
+
+  it("reveals stock pressure at the stock-pressure milestone", () => {
+    const { run, meta } = createVisibilityScenario((starterRun) => ({
+      ...starterRun,
+      regions: {
+        ...starterRun.regions,
+        pierCove: {
+          ...starterRun.regions.pierCove,
+          stockCurrent: starterRun.regions.pierCove.stockCap * 0.85,
+        },
+      },
+    }));
+
+    expect(selectPlayShellVisibility(run, meta)).toEqual({
+      shellMode: "compact",
+      showOnboardingCard: false,
+      showStatusRail: false,
+      showProgressSummary: false,
+      showLeftColumnCards: false,
+      showRightColumnNotes: false,
+      showShopRevealCue: false,
+      showUpgradeShop: false,
+      showReadingTheRailCard: false,
+      earlyHudCards: {
+        cash: true,
+        nearbyFish: true,
+        cooldown: true,
+        stockPressure: true,
+      },
+      castButtonMode: "compact",
+    });
+  });
+
+  it("shows the shop reveal cue once a quiet-pier upgrade is affordable", () => {
+    const { run, meta } = createVisibilityScenario((starterRun) => ({
+      ...starterRun,
+      cash: cheapestQuietPierUpgradeCost,
+    }));
+
+    expect(selectPlayShellVisibility(run, meta)).toEqual({
+      shellMode: "compact",
+      showOnboardingCard: false,
+      showStatusRail: false,
+      showProgressSummary: false,
+      showLeftColumnCards: false,
+      showRightColumnNotes: false,
+      showShopRevealCue: true,
+      showUpgradeShop: false,
+      showReadingTheRailCard: false,
+      earlyHudCards: {
+        cash: true,
+        nearbyFish: true,
+        cooldown: true,
+        stockPressure: true,
+      },
+      castButtonMode: "compact",
+    });
+  });
+
+  it("switches to the full shell once the harbor shell has expanded", () => {
+    const { run, meta } = createVisibilityScenario((starterRun) => ({
+      ...starterRun,
+      unlocks: {
+        ...starterRun.unlocks,
+        upgrades: ["betterBait"],
+      },
+    }));
+
+    expect(selectPlayShellVisibility(run, meta)).toEqual({
+      shellMode: "full",
+      showOnboardingCard: false,
+      showStatusRail: true,
+      showProgressSummary: true,
+      showLeftColumnCards: true,
+      showRightColumnNotes: true,
+      showShopRevealCue: false,
+      showUpgradeShop: true,
+      showReadingTheRailCard: true,
+      earlyHudCards: {
+        cash: true,
+        nearbyFish: true,
+        cooldown: true,
+        stockPressure: true,
+      },
+      castButtonMode: "full",
+    });
   });
 });
 

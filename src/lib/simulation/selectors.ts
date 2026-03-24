@@ -24,6 +24,12 @@ import {
   getLicenseRenewalCarryover,
   isLicenseRenewalReady,
 } from "@/lib/simulation/reducers/prestige";
+export {
+  selectPlayShellVisibility,
+} from "@/lib/simulation/playShellVisibility";
+export type {
+  PlayShellVisibilityModel,
+} from "@/lib/simulation/playShellVisibility";
 import { syncProcessingState } from "@/lib/simulation/reducers/processing";
 import { getSkiffTripFuelCost } from "@/lib/simulation/reducers/skiffTrips";
 import { phaseUnlockRules } from "@/lib/simulation/reducers/unlocks";
