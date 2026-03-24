@@ -406,7 +406,7 @@ describe("App bootstrap", () => {
         ...state.run,
         lifetimeFishLanded: 60,
         lifetimeRevenue: 100,
-      });
+      }, state.meta);
     });
 
     renderAtPath("/play");
@@ -448,7 +448,7 @@ describe("App bootstrap", () => {
           ],
           tabs: ["harbor", "fleet", "processing", "regions", "settings"],
         },
-      });
+      }, state.meta);
     });
 
     renderAtPath("/play");
@@ -475,7 +475,7 @@ describe("App bootstrap", () => {
       state.replaceRun({
         ...state.run,
         cash: 100,
-      });
+      }, state.meta);
     });
 
     renderAtPath("/play");
@@ -495,7 +495,7 @@ describe("App bootstrap", () => {
       state.replaceRun({
         ...state.run,
         cash: 100,
-      });
+      }, state.meta);
     });
 
     renderAtPath("/play");
@@ -578,7 +578,7 @@ describe("App bootstrap", () => {
             stockCurrent: 30,
           },
         },
-      });
+      }, state.meta);
     });
 
     expect(screen.getByTestId("early-stock-pressure")).toHaveTextContent(
@@ -596,7 +596,8 @@ describe("App bootstrap", () => {
     const user = userEvent.setup();
 
     act(() => {
-      gameStore.getState().replaceRun(createSkiffOperatorRun());
+      const state = gameStore.getState();
+      state.replaceRun(createSkiffOperatorRun(), state.meta);
     });
 
     renderAtPath("/play");
@@ -634,7 +635,8 @@ describe("App bootstrap", () => {
 
   it("renders dock storage pressure and gear slot usage once Dockside Gear is unlocked", () => {
     act(() => {
-      gameStore.getState().replaceRun(createDocksideGearRun());
+      const state = gameStore.getState();
+      state.replaceRun(createDocksideGearRun(), state.meta);
     });
 
     renderAtPath("/play");
@@ -656,7 +658,8 @@ describe("App bootstrap", () => {
     const user = userEvent.setup();
 
     act(() => {
-      gameStore.getState().replaceRun(createPassiveGearRun());
+      const state = gameStore.getState();
+      state.replaceRun(createPassiveGearRun(), state.meta);
     });
 
     renderAtPath("/play");
@@ -683,7 +686,8 @@ describe("App bootstrap", () => {
     const user = userEvent.setup();
 
     act(() => {
-      gameStore.getState().replaceRun(createUnlockModalRun());
+      const state = gameStore.getState();
+      state.replaceRun(createUnlockModalRun(), state.meta);
     });
 
     renderAtPath("/play");
@@ -704,7 +708,8 @@ describe("App bootstrap", () => {
 
   it("shifts the play shell into fleet operations once Fleet Ops is unlocked", () => {
     act(() => {
-      gameStore.getState().replaceRun(createFleetOpsRun());
+      const state = gameStore.getState();
+      state.replaceRun(createFleetOpsRun(), state.meta);
     });
 
     renderAtPath("/play");
@@ -721,7 +726,8 @@ describe("App bootstrap", () => {
 
   it("shows the contract board empty state before processing comes online", () => {
     act(() => {
-      gameStore.getState().replaceRun(createFleetOpsRun());
+      const state = gameStore.getState();
+      state.replaceRun(createFleetOpsRun(), state.meta);
     });
 
     renderAtPath("/play");
@@ -734,7 +740,8 @@ describe("App bootstrap", () => {
 
   it("keeps a dockside revenue control reachable after Fleet Ops unlocks", () => {
     act(() => {
-      gameStore.getState().replaceRun(createFleetOpsRun());
+      const state = gameStore.getState();
+      state.replaceRun(createFleetOpsRun(), state.meta);
     });
 
     renderAtPath("/play");
@@ -753,7 +760,8 @@ describe("App bootstrap", () => {
     const run = createFleetOpsRun();
 
     act(() => {
-      gameStore.getState().replaceRun({
+      const state = gameStore.getState();
+      state.replaceRun({
         ...run,
         boats: {
           ...run.boats,
@@ -763,7 +771,7 @@ describe("App bootstrap", () => {
             status: "docked",
           },
         },
-      });
+      }, state.meta);
     });
 
     renderAtPath("/play");
@@ -786,7 +794,8 @@ describe("App bootstrap", () => {
     const user = userEvent.setup();
 
     act(() => {
-      gameStore.getState().replaceRun(createProcessingContractsRun());
+      const state = gameStore.getState();
+      state.replaceRun(createProcessingContractsRun(), state.meta);
     });
 
     renderAtPath("/play");
@@ -803,7 +812,8 @@ describe("App bootstrap", () => {
 
   it("shows the regional oversight empty state before offshore expansion", () => {
     act(() => {
-      gameStore.getState().replaceRun(createProcessingContractsRun());
+      const state = gameStore.getState();
+      state.replaceRun(createProcessingContractsRun(), state.meta);
     });
 
     renderAtPath("/play");
@@ -818,7 +828,8 @@ describe("App bootstrap", () => {
     const starterRun = createStarterRun();
 
     act(() => {
-      gameStore.getState().replaceRun({
+      const state = gameStore.getState();
+      state.replaceRun({
         ...starterRun,
         phase: "regionalExtraction",
         uiTone: "industrial",
@@ -850,7 +861,7 @@ describe("App bootstrap", () => {
             "regionalExtraction",
           ],
         },
-      });
+      }, state.meta);
     });
 
     renderAtPath("/play");
@@ -865,7 +876,8 @@ describe("App bootstrap", () => {
     const user = userEvent.setup();
 
     act(() => {
-      gameStore.getState().replaceRun(createRenewalReadyRun());
+      const state = gameStore.getState();
+      state.replaceRun(createRenewalReadyRun(), state.meta);
     });
 
     renderAtPath("/play");

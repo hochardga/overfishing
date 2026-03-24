@@ -96,7 +96,8 @@ describe("analytics", () => {
       initialized: true,
     });
     act(() => {
-      gameStore.getState().replaceRun(createStarterRun());
+      const state = gameStore.getState();
+      state.replaceRun(createStarterRun(), state.meta);
     });
   });
 
@@ -188,7 +189,8 @@ describe("analytics", () => {
       initialized: true,
     });
     act(() => {
-      gameStore.getState().replaceRun(createRenewalReadyRun());
+      const state = gameStore.getState();
+      state.replaceRun(createRenewalReadyRun(), state.meta);
     });
 
     renderWithProviders("/settings", { track });
@@ -224,7 +226,8 @@ describe("analytics", () => {
       initialized: true,
     });
     act(() => {
-      gameStore.getState().replaceRun(createConsentEnabledRun());
+      const state = gameStore.getState();
+      state.replaceRun(createConsentEnabledRun(), state.meta);
     });
 
     renderWithProviders("/settings", { track });

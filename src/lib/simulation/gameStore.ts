@@ -75,8 +75,10 @@ export type GameStoreState = {
   meta: MetaProgressState;
   hydrated: boolean;
   recoveryMessage: string | null;
-  initialize: (run?: RunState | null, meta?: MetaProgressState) => void;
-  replaceRun: (run: RunState, meta?: MetaProgressState) => void;
+  initialize: (
+    ...args: [] | [run: RunState | null, meta: MetaProgressState]
+  ) => void;
+  replaceRun: (run: RunState, meta: MetaProgressState) => void;
   resetRun: () => void;
   dismissRecoveryMessage: () => void;
   tick: (elapsedSeconds: number) => void;
@@ -242,10 +244,11 @@ const createState = (
       meta: initialMeta,
       hydrated: false,
       recoveryMessage: null,
-      initialize: (run, meta) => {
-        if (run) {
+      initialize: (...args) => {
+        if (args.length === 2) {
+          const [run, meta] = args;
           simulationAnchorMs = null;
-          applyGameplayState(run, meta ?? get().meta, {
+          applyGameplayState(run ?? createStarterRun(meta), meta, {
             hydrated: true,
             recoveryMessage: null,
           });
@@ -271,7 +274,7 @@ const createState = (
         startSimulationLoop();
       },
       replaceRun: (run, meta) => {
-        applyGameplayState(run, meta ?? get().meta, {
+        applyGameplayState(run, meta, {
           hydrated: true,
           recoveryMessage: null,
         });

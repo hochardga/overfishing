@@ -145,6 +145,7 @@ describe("game store", () => {
       .getState()
       .replaceRun(
         withDiscoverySteps(initialStore.getState().run, earnedDiscoverySteps),
+        initialStore.getState().meta,
       );
 
     const reloadedStore = createGameStore();
@@ -192,7 +193,9 @@ describe("game store", () => {
   it("normalizes discovery state during replaceRun and initialize without duplicating retired intro state", () => {
     const initialStore = createGameStore(createStarterRun());
 
-    initialStore.getState().replaceRun(createRunForDiscoveryBackfill());
+    initialStore
+      .getState()
+      .replaceRun(createRunForDiscoveryBackfill(), initialStore.getState().meta);
 
     expect(readDiscoverySteps(initialStore.getState().run)).toEqual(
       expandedShellDiscoverySteps,
