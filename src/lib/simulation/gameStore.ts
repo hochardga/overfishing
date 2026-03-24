@@ -13,6 +13,11 @@ import {
   performManualCast,
   type ManualCastResult,
 } from "@/lib/simulation/reducers/manualFishing";
+import {
+  purchaseUpgrade as purchaseUpgradeReducer,
+  type UpgradePurchaseResult,
+} from "@/lib/simulation/reducers/upgrades";
+import { applyUnlockChecks } from "@/lib/simulation/reducers/unlocks";
 import { advanceRunBySeconds } from "@/lib/simulation/tickEngine";
 
 export type GameStoreState = {
@@ -24,6 +29,7 @@ export type GameStoreState = {
   startSimulationLoop: () => void;
   stopSimulationLoop: () => void;
   castManual: (nowMs: number) => ManualCastResult;
+  purchaseUpgrade: (upgradeId: string) => UpgradePurchaseResult;
 };
 
 const createState = (initialRun: RunState = createStarterRun()) =>
@@ -39,6 +45,8 @@ const createState = (initialRun: RunState = createStarterRun()) =>
         run,
       }));
     };
+
+    const normalizeRun = (run: RunState) => applyUnlockChecks(run);
 
     const syncRunToTime = (nowMs: number) => {
       if (simulationAnchorMs === null) {
@@ -96,23 +104,27 @@ const createState = (initialRun: RunState = createStarterRun()) =>
         if (run) {
           hasHydrated = true;
           simulationAnchorMs = null;
-          set({ run });
+          const hydratedRun = normalizeRun(run);
+          set({ run: hydratedRun });
+          persistRun(hydratedRun);
           startSimulationLoop();
           return;
         }
 
         if (!hasHydrated) {
-          const fallbackRun = loadOrCreateSave().run ?? createStarterRun();
+          const fallbackRun = normalizeRun(loadOrCreateSave().run ?? createStarterRun());
           hasHydrated = true;
           simulationAnchorMs = null;
           set({ run: fallbackRun });
+          persistRun(fallbackRun);
         }
 
         startSimulationLoop();
       },
       replaceRun: (run) => {
-        set({ run });
-        persistRun(run);
+        const normalizedRun = normalizeRun(run);
+        set({ run: normalizedRun });
+        persistRun(normalizedRun);
       },
       resetRun: () => {
         const nextRun = createStarterRun();
@@ -121,9 +133,9 @@ const createState = (initialRun: RunState = createStarterRun()) =>
         persistRun(nextRun);
       },
       tick: (elapsedSeconds) => {
-        set((state) => ({
-          run: advanceRunBySeconds(state.run, elapsedSeconds),
-        }));
+        const nextRun = advanceRunBySeconds(get().run, elapsedSeconds);
+        set({ run: nextRun });
+        persistRun(nextRun);
       },
       startSimulationLoop,
       stopSimulationLoop,
@@ -132,6 +144,16 @@ const createState = (initialRun: RunState = createStarterRun()) =>
         const result = performManualCast(syncedRun, {
           nowMs,
         });
+
+        set({
+          run: result.run,
+        });
+        persistRun(result.run);
+
+        return result;
+      },
+      purchaseUpgrade: (upgradeId) => {
+        const result = purchaseUpgradeReducer(get().run, upgradeId);
 
         set({
           run: result.run,

@@ -1,10 +1,12 @@
 import type { RunState } from "@/lib/storage/saveSchema";
 import { getPhaseDefinition } from "@/lib/economy/phases";
+import { upgradeDefinitions } from "@/lib/economy/upgrades";
 import { applyRegionStockPressure } from "@/lib/economy/regions";
 import {
   getManualCastCycleMs,
   resolveManualCastZoneHit,
 } from "@/lib/simulation/reducers/manualFishing";
+import { phaseUnlockRules } from "@/lib/simulation/reducers/unlocks";
 
 export function formatElapsedSeconds(elapsedSeconds: number) {
   const minutes = Math.floor(elapsedSeconds / 60)
@@ -184,4 +186,110 @@ export function selectStatusRailItems(run: RunState) {
       detail: "Unlocked waters",
     },
   ];
+}
+
+export type UpgradeShopItem = {
+  id: string;
+  label: string;
+  cost: number;
+  description: string;
+  phaseLabel: string;
+  owned: boolean;
+  affordable: boolean;
+  available: boolean;
+};
+
+export type UpgradeShopState = {
+  title: string;
+  intro: string;
+  phasePanelLabel: string;
+  hasNextPhase: boolean;
+  nextPhaseLabel: string;
+  phaseRequirementText: string;
+  phaseProgressText: string;
+  phaseStatusText: string;
+  phaseReady: boolean;
+  phaseProgress: number;
+  fishProgress: number;
+  revenueProgress: number;
+  items: UpgradeShopItem[];
+};
+
+export function selectUpgradeShopState(run: RunState): UpgradeShopState {
+  const nextPhaseRule = phaseUnlockRules.find(
+    (rule) => !run.unlocks.phasesSeen.includes(rule.phaseId),
+  );
+  const ownedUpgrades = new Set(run.unlocks.upgrades);
+  const items = Object.values(upgradeDefinitions)
+    .map((upgrade) => ({
+      id: upgrade.id,
+      label: upgrade.label,
+      cost: upgrade.cost,
+      description: upgrade.description,
+      phaseLabel: getPhaseDefinition(upgrade.phase).label,
+      owned: ownedUpgrades.has(upgrade.id),
+      affordable: run.cash >= upgrade.cost,
+      available: run.unlocks.phasesSeen.includes(upgrade.phase),
+    }))
+    .sort((left, right) => {
+      if (left.available !== right.available) {
+        return left.available ? -1 : 1;
+      }
+
+      if (left.owned !== right.owned) {
+        return left.owned ? 1 : -1;
+      }
+
+      return left.cost - right.cost;
+    });
+
+  if (!nextPhaseRule) {
+    return {
+      title: `${getPhaseDefinition(run.phase).label} upgrades`,
+      intro:
+        "Small dockside upgrades that sharpen the first loop without clutter.",
+      phasePanelLabel: "Phase progress",
+      hasNextPhase: false,
+      nextPhaseLabel: "Current slice complete",
+      phaseRequirementText: "All currently configured phase unlocks are active.",
+      phaseProgressText: "No further thresholds are waiting in this slice.",
+      phaseStatusText: "All configured phase unlocks are already active.",
+      phaseReady: false,
+      phaseProgress: 1,
+      fishProgress: 1,
+      revenueProgress: 1,
+      items,
+    };
+  }
+
+  const fishProgress = Math.min(
+    1,
+    run.lifetimeFishLanded / nextPhaseRule.requiredLifetimeFishLanded,
+  );
+  const revenueProgress = Math.min(
+    1,
+    run.lifetimeRevenue / nextPhaseRule.requiredLifetimeRevenue,
+  );
+  const nextPhaseLabel = getPhaseDefinition(nextPhaseRule.phaseId).label;
+  const phaseReady =
+    run.lifetimeFishLanded >= nextPhaseRule.requiredLifetimeFishLanded &&
+    run.lifetimeRevenue >= nextPhaseRule.requiredLifetimeRevenue;
+
+  return {
+    title: `${getPhaseDefinition(run.phase).label} upgrades`,
+    intro: "Small dockside upgrades that sharpen the first loop without clutter.",
+    phasePanelLabel: "Next phase",
+    hasNextPhase: true,
+    nextPhaseLabel,
+    phaseRequirementText: `${nextPhaseLabel} unlocks at ${nextPhaseRule.requiredLifetimeFishLanded} lifetime fish landed and $${nextPhaseRule.requiredLifetimeRevenue} lifetime revenue.`,
+    phaseProgressText: `${run.lifetimeFishLanded.toFixed(0)} / ${nextPhaseRule.requiredLifetimeFishLanded} fish landed, $${run.lifetimeRevenue.toFixed(0)} / $${nextPhaseRule.requiredLifetimeRevenue} revenue.`,
+    phaseStatusText: phaseReady
+      ? `${nextPhaseLabel} is ready to unlock.`
+      : "The dock is still warming up.",
+    phaseReady,
+    phaseProgress: Math.min(fishProgress, revenueProgress),
+    fishProgress,
+    revenueProgress,
+    items,
+  };
 }

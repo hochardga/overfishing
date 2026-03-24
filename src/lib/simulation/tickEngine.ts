@@ -1,5 +1,6 @@
 import type { RunState } from "@/lib/storage/saveSchema";
 import { applyRegionsStockPressure } from "@/lib/economy/regions";
+import { applyUnlockChecks } from "@/lib/simulation/reducers/unlocks";
 
 export function advanceRunBySeconds(
   run: RunState,
@@ -8,7 +9,7 @@ export function advanceRunBySeconds(
   const safeElapsedSeconds = Math.max(0, elapsedSeconds);
 
   if (safeElapsedSeconds === 0) {
-    return run;
+    return applyUnlockChecks(run);
   }
 
   const nextRegions = applyRegionsStockPressure(
@@ -28,7 +29,7 @@ export function advanceRunBySeconds(
   const cooldownReductionMs = safeElapsedSeconds * 1000;
   const nextCooldownMs = Math.max(0, run.manual.cooldownMs - cooldownReductionMs);
 
-  return {
+  return applyUnlockChecks({
     ...run,
     elapsedSeconds: run.elapsedSeconds + safeElapsedSeconds,
     manual: {
@@ -36,5 +37,5 @@ export function advanceRunBySeconds(
       cooldownMs: nextCooldownMs < 1 ? 0 : nextCooldownMs,
     },
     regions: nextRegions,
-  };
+  });
 }

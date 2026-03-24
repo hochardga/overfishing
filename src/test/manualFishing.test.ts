@@ -1,6 +1,7 @@
 import { applyRegionStockPressure } from "@/lib/economy/regions";
 import { createStarterRun } from "@/lib/storage/saveSchema";
 import {
+  getManualCastCycleMs,
   performManualCast,
   resolveManualCastZoneHit,
 } from "@/lib/simulation/reducers/manualFishing";
@@ -207,5 +208,95 @@ describe("manual fishing", () => {
 
     expect(afterOneSecond.manual.cooldownMs).toBe(1_200);
     expect(afterThreeMoreSeconds.manual.cooldownMs).toBe(0);
+  });
+
+  it("widens the perfect window when Better Bait is owned", () => {
+    const baseRun = {
+      ...createStarterRun(),
+      elapsedSeconds: 0.54,
+    };
+    const upgradedRun = {
+      ...baseRun,
+      unlocks: {
+        ...baseRun.unlocks,
+        upgrades: ["betterBait"],
+      },
+    };
+
+    expect(resolveManualCastZoneHit(baseRun)).toBe("normal");
+    expect(resolveManualCastZoneHit(upgradedRun)).toBe("perfect");
+  });
+
+  it("shortens the cast cycle when Hand Reel is owned", () => {
+    const run = {
+      ...createStarterRun(),
+      unlocks: {
+        ...createStarterRun().unlocks,
+        upgrades: ["handReel"],
+      },
+    };
+
+    expect(getManualCastCycleMs(run)).toBe(1_900);
+
+    const result = performManualCast(run, {
+      nowMs: 1_000,
+    });
+
+    expect(result.nextCooldownMs).toBe(1_900);
+    expect(result.run.manual.cooldownMs).toBe(1_900);
+  });
+
+  it("raises the perfect catch amount when Lucky Hat is owned", () => {
+    const run = {
+      ...createStarterRun(),
+      unlocks: {
+        ...createStarterRun().unlocks,
+        upgrades: ["luckyHat"],
+      },
+    };
+
+    const result = performManualCast(run, {
+      nowMs: 1_000,
+    });
+
+    expect(result.fishCaught).toBe(3);
+    expect(result.cashEarned).toBe(12);
+    expect(result.run.lifetimeFishLanded).toBe(3);
+  });
+
+  it("adds one coin per fish when Tackle Tin is owned", () => {
+    const run = {
+      ...createStarterRun(),
+      unlocks: {
+        ...createStarterRun().unlocks,
+        upgrades: ["tackleTin"],
+      },
+    };
+
+    const result = performManualCast(run, {
+      nowMs: 1_000,
+    });
+
+    expect(result.fishCaught).toBe(2);
+    expect(result.cashEarned).toBe(10);
+    expect(result.run.cash).toBe(10);
+  });
+
+  it("boosts manual catch value when Salted Lunch is owned", () => {
+    const run = {
+      ...createStarterRun(),
+      unlocks: {
+        ...createStarterRun().unlocks,
+        upgrades: ["saltedLunch"],
+      },
+    };
+
+    const result = performManualCast(run, {
+      nowMs: 1_000,
+    });
+
+    expect(result.fishCaught).toBe(2);
+    expect(result.cashEarned).toBe(9);
+    expect(result.run.cash).toBe(9);
   });
 });

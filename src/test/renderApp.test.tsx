@@ -9,7 +9,7 @@ import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
 import App from "@/App";
-import { gameStore } from "@/lib/simulation/gameStore";
+import { createGameStore, gameStore } from "@/lib/simulation/gameStore";
 
 function renderAtPath(pathname: string) {
   window.history.pushState({}, "", pathname);
@@ -59,6 +59,117 @@ describe("App bootstrap", () => {
     expect(
       screen.getByRole("heading", { name: /harbor operations/i }),
     ).toBeInTheDocument();
+  });
+
+  it("surfaces the Quiet Pier upgrade shop on the play route", () => {
+    renderAtPath("/play");
+
+    expect(
+      screen.getByRole("heading", { name: /quiet pier upgrades/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /buy better bait/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /skiff operator unlocks at 60 lifetime fish landed and \$250 lifetime revenue/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/locked until skiff operator/i).length).toBeGreaterThan(0);
+  });
+
+  it("keeps next-phase progress anchored to the slower unlock requirement", () => {
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun({
+        ...state.run,
+        lifetimeFishLanded: 60,
+        lifetimeRevenue: 100,
+      });
+    });
+
+    renderAtPath("/play");
+
+    const shop = screen.getByTestId("upgrade-shop");
+    const progressFill = shop.querySelector('div[style*="width"]');
+
+    expect(progressFill).not.toBeNull();
+    expect(progressFill).toHaveStyle({ width: "40%" });
+    expect(screen.getByText(/the dock is still warming up/i)).toBeInTheDocument();
+  });
+
+  it("switches the next-phase panel to a terminal message once all configured unlocks are active", () => {
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun({
+        ...state.run,
+        phase: "docksideGear",
+        lifetimeFishLanded: 200,
+        lifetimeRevenue: 900,
+        unlocks: {
+          ...state.run.unlocks,
+          phasesSeen: ["quietPier", "skiffOperator", "docksideGear"],
+          upgrades: ["rustySkiff"],
+          tabs: ["harbor", "fleet", "settings"],
+        },
+      });
+    });
+
+    renderAtPath("/play");
+
+    expect(
+      screen.getByText(/all currently configured phase unlocks are active/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/no further thresholds are waiting in this slice/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/dockside gear is ready to unlock/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/all configured phase unlocks are already active/i),
+    ).toBeInTheDocument();
+  });
+
+  it("buys a Quiet Pier upgrade through the live shop", async () => {
+    const user = userEvent.setup();
+
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun({
+        ...state.run,
+        cash: 100,
+      });
+    });
+
+    renderAtPath("/play");
+
+    await user.click(screen.getByRole("button", { name: /buy better bait/i }));
+
+    expect(gameStore.getState().run.unlocks.upgrades).toContain("betterBait");
+    expect(gameStore.getState().run.cash).toBe(85);
+    expect(screen.getByRole("button", { name: /owned/i })).toBeInTheDocument();
+  });
+
+  it("rehydrates purchased upgrades from saved data after a refresh", async () => {
+    const user = userEvent.setup();
+
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun({
+        ...state.run,
+        cash: 100,
+      });
+    });
+
+    renderAtPath("/play");
+    await user.click(screen.getByRole("button", { name: /buy better bait/i }));
+
+    const freshStore = createGameStore();
+    freshStore.getState().initialize();
+
+    expect(freshStore.getState().run.unlocks.upgrades).toContain("betterBait");
+    expect(freshStore.getState().run.cash).toBe(85);
   });
 
   it("renders the play shell status rail and three columns at /play", () => {

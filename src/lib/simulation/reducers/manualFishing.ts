@@ -1,5 +1,7 @@
 import type { RunState } from "@/lib/storage/saveSchema";
 import { applyRegionStockPressure } from "@/lib/economy/regions";
+import { selectManualUpgradeEffects } from "@/lib/economy/upgrades";
+import { applyUnlockChecks } from "@/lib/simulation/reducers/unlocks";
 
 export type ManualCastZoneHit = "normal" | "perfect";
 export type ManualCastOutcome = "cast" | "cooldown";
@@ -41,12 +43,16 @@ function buildCastFeedback(
 }
 
 export function getManualCastCycleMs(run: RunState) {
+  const manualEffects = selectManualUpgradeEffects(run.unlocks.upgrades);
   const catchSpeedModifier = Math.max(
     0.1,
     run.regions.pierCove.catchSpeedModifier,
   );
 
-  return CAST_CYCLE_MS / catchSpeedModifier;
+  return Math.round(
+    (CAST_CYCLE_MS * manualEffects.castCooldownMultiplier) /
+      catchSpeedModifier,
+  );
 }
 
 export function resolveManualCastZoneHit(
@@ -55,7 +61,11 @@ export function resolveManualCastZoneHit(
   const elapsedMs = Math.floor(run.elapsedSeconds * 1000);
   const cycleMs = getManualCastCycleMs(run);
   const cyclePositionMs = elapsedMs % cycleMs;
-  const perfectZoneMs = run.manual.perfectZoneWidth * cycleMs;
+  const manualEffects = selectManualUpgradeEffects(run.unlocks.upgrades);
+  const perfectZoneMs =
+    run.manual.perfectZoneWidth *
+    manualEffects.perfectZoneWidthMultiplier *
+    cycleMs;
 
   return cyclePositionMs < perfectZoneMs ? "perfect" : "normal";
 }
@@ -80,9 +90,10 @@ export function performManualCast(
   }
 
   const zoneHit = resolveManualCastZoneHit(run);
+  const manualEffects = selectManualUpgradeEffects(run.unlocks.upgrades);
   const fishCaught =
     zoneHit === "perfect"
-      ? run.manual.catchAmountPerfect
+      ? Math.max(run.manual.catchAmountPerfect, manualEffects.catchAmountPerfect)
       : run.manual.catchAmountNormal;
 
   const region = applyRegionStockPressure(run.regions.pierCove);
@@ -93,15 +104,17 @@ export function performManualCast(
     stockCurrent: nextStockCurrent,
   });
   const nextCooldownMs = Math.round(
-    CAST_CYCLE_MS / Math.max(0.1, nextRegion.catchSpeedModifier),
+    (CAST_CYCLE_MS * manualEffects.castCooldownMultiplier) /
+      Math.max(0.1, nextRegion.catchSpeedModifier),
   );
   const cashEarned = Math.round(
     actualFishCaught *
-      region.baseFishValue *
+      (region.baseFishValue + manualEffects.sellValueBonusPerFish) *
       nextRegion.scarcityPriceModifier *
-      run.manual.sellValueModifier,
+      run.manual.sellValueModifier *
+      manualEffects.sellValueMultiplier,
   );
-  const nextRun: RunState = {
+  const nextRun: RunState = applyUnlockChecks({
     ...run,
     cash: run.cash + cashEarned,
     lifetimeRevenue: run.lifetimeRevenue + cashEarned,
@@ -114,7 +127,7 @@ export function performManualCast(
       ...run.regions,
       pierCove: nextRegion,
     },
-  };
+  });
 
   return {
     outcome: "cast",

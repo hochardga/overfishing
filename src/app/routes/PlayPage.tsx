@@ -6,6 +6,7 @@ import { EarlyHud } from "@/components/game/EarlyHud";
 import { GameShell } from "@/components/game/GameShell";
 import { Card } from "@/components/ui/Card";
 import { CastButton } from "@/features/fishing/CastButton";
+import { UpgradeShop } from "@/features/upgrades/UpgradeShop";
 import { useGameStore } from "@/lib/simulation/gameStore";
 import { selectStatusRailItems } from "@/lib/simulation/selectors";
 
@@ -73,6 +74,7 @@ export default function PlayPage() {
               lands immediately and the dock stays easy to read.
             </p>
           </Card>
+          <UpgradeShop run={run} />
           <Card className="space-y-3">
             <h2 className="font-heading text-2xl">Reading the rail</h2>
             <p className="text-sm text-text-muted">
