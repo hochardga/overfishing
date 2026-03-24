@@ -1,6 +1,7 @@
 import { getUpgradeDefinition, type UpgradeId } from "@/lib/economy/upgrades";
 import type { PhaseId, RunState } from "@/lib/storage/saveSchema";
 
+import { syncFleetState } from "@/lib/simulation/reducers/fleet";
 import { syncPassiveGearState } from "@/lib/simulation/reducers/passiveGear";
 import { syncSkiffState } from "@/lib/simulation/reducers/skiffTrips";
 import { applyUnlockChecks } from "@/lib/simulation/reducers/unlocks";
@@ -95,16 +96,18 @@ export function purchaseUpgrade(
     };
   }
 
-  const purchasedRun: RunState = syncPassiveGearState(
-    syncSkiffState(
-      applyUnlockChecks({
-        ...run,
-        cash: run.cash - definition.cost,
-        unlocks: {
-          ...run.unlocks,
-          upgrades: [...run.unlocks.upgrades, upgradeId],
-        },
-      }),
+  const purchasedRun: RunState = syncFleetState(
+    syncPassiveGearState(
+      syncSkiffState(
+        applyUnlockChecks({
+          ...run,
+          cash: run.cash - definition.cost,
+          unlocks: {
+            ...run.unlocks,
+            upgrades: [...run.unlocks.upgrades, upgradeId],
+          },
+        }),
+      ),
     ),
   );
 

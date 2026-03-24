@@ -1,5 +1,6 @@
 import { normalizeSaveFile } from "@/lib/storage/migrations";
 import { createFreshSave, type SaveFile } from "@/lib/storage/saveSchema";
+import { renewLicenseSaveData } from "@/lib/simulation/reducers/prestige";
 
 export const SAVE_STORAGE_KEY = "overfishing-save";
 
@@ -41,4 +42,8 @@ export function updateSave(
   updater: (currentSave: SaveFile) => SaveFile,
 ): SaveFile {
   return saveGame(updater(loadOrCreateSave()));
+}
+
+export function renewLicenseSave(): SaveFile {
+  return saveGame(renewLicenseSaveData(loadOrCreateSave()));
 }

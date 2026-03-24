@@ -24,6 +24,27 @@ export const phaseUnlockRules: PhaseUnlockRule[] = [
     requiredUpgradeIds: ["rustySkiff"],
     unlockTabs: ["fleet"],
   },
+  {
+    phaseId: "fleetOps",
+    requiredLifetimeFishLanded: 260,
+    requiredLifetimeRevenue: 1_400,
+    requiredUpgradeIds: ["hireCousin"],
+    unlockTabs: ["fleet"],
+  },
+  {
+    phaseId: "processingContracts",
+    requiredLifetimeFishLanded: 520,
+    requiredLifetimeRevenue: 3_200,
+    requiredUpgradeIds: ["dockLease", "usedWorkSkiff", "deckhandHire"],
+    unlockTabs: ["fleet", "processing"],
+  },
+  {
+    phaseId: "regionalExtraction",
+    requiredLifetimeFishLanded: 850,
+    requiredLifetimeRevenue: 5_200,
+    requiredUpgradeIds: ["processingShed", "flashFreezer"],
+    unlockTabs: ["fleet", "processing", "regions"],
+  },
 ];
 
 function dedupeTabs(tabs: RunState["unlocks"]["tabs"]) {
