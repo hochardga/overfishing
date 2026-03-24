@@ -393,6 +393,23 @@ export type GearPanelState = {
   items: GearCardState[];
 };
 
+export type PhaseUnlockModalState = {
+  phaseId: RunState["phase"];
+  title: string;
+  body: string;
+  detail: string;
+  actionLabel: string;
+};
+
+export type ProgressSummaryState = {
+  title: string;
+  phaseLabel: string;
+  focusLabel: string;
+  focusText: string;
+  nextLabel: string;
+  nextText: string;
+};
+
 function formatPlural(value: number, singular: string, plural: string) {
   return `${value} ${value === 1 ? singular : plural}`;
 }
@@ -409,6 +426,76 @@ export type GearCardState = {
 
 function getGearLabel(kind: RunState["gear"][string]["kind"]) {
   return kind === "longline" ? "Longline" : "Crab Pot";
+}
+
+export function selectActivePhaseUnlockModalState(
+  run: RunState,
+): PhaseUnlockModalState | null {
+  const phaseId = run.unlocks.pendingPhaseModalIds?.[0];
+
+  if (!phaseId) {
+    return null;
+  }
+
+  if (phaseId === "skiffOperator") {
+    return {
+      phaseId,
+      title: "Skiff Operator unlocked",
+      body: "Fuel, hold space, and short Kelp Bed runs now matter.",
+      detail: "Buy Harbor Map and Rusty Skiff to turn the dock into short trips instead of pure casting.",
+      actionLabel: "Keep the dock moving",
+    };
+  }
+
+  if (phaseId === "docksideGear") {
+    return {
+      phaseId,
+      title: "Dockside Gear unlocked",
+      body: "Storage, decay, and passive rigs can jam the dock if you ignore them.",
+      detail: "Deploy gear, haul it on time, and keep raw fish moving before the dock loses value.",
+      actionLabel: "Keep the dock moving",
+    };
+  }
+
+  return {
+    phaseId,
+    title: `${getPhaseDefinition(phaseId).label} unlocked`,
+    body: getPhaseDefinition(phaseId).description,
+    detail: "A new management tension is now active.",
+    actionLabel: "Keep the dock moving",
+  };
+}
+
+export function selectProgressSummaryState(run: RunState): ProgressSummaryState {
+  const nextPhaseRule = phaseUnlockRules.find(
+    (rule) => !run.unlocks.phasesSeen.includes(rule.phaseId),
+  );
+  const blockedGearCount = Object.values(run.gear).filter(
+    (gear) => gear.active && gear.blockedByStorage,
+  ).length;
+  const currentPhaseLabel = getPhaseDefinition(run.phase).label;
+  const focusText =
+    run.phase === "quietPier"
+      ? "Cash, timing, and Pier Cove stock still define the run."
+      : run.phase === "skiffOperator"
+        ? run.unlocks.upgrades.includes("rustySkiff")
+          ? "Fuel and hold space now pace your Kelp Bed trips."
+          : "Buy Harbor Map and Rusty Skiff to start leaving the dock."
+        : blockedGearCount > 0 || run.facilities.dockStorageRawFish >= run.facilities.dockStorageCap
+          ? "Dock storage is the bottleneck. Haul gear and clear space before value slips."
+          : "Passive gear, haul timing, and storage quality now pace the dock.";
+  const nextText = nextPhaseRule
+    ? `${getPhaseDefinition(nextPhaseRule.phaseId).label} unlocks at ${nextPhaseRule.requiredLifetimeFishLanded} fish and $${nextPhaseRule.requiredLifetimeRevenue} revenue.`
+    : "Current slice complete. Phase 1 systems are active.";
+
+  return {
+    title: "Progress summary",
+    phaseLabel: currentPhaseLabel,
+    focusLabel: "Current bottleneck",
+    focusText,
+    nextLabel: "Next unlock",
+    nextText,
+  };
 }
 
 export function selectGearPanelState(run: RunState): GearPanelState {

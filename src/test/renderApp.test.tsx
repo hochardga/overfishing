@@ -9,7 +9,7 @@ import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
 import App from "@/App";
-import { createStarterRun } from "@/lib/storage/saveSchema";
+import { createStarterRun, type RunState } from "@/lib/storage/saveSchema";
 import { createGameStore, gameStore } from "@/lib/simulation/gameStore";
 import { purchaseUpgrade } from "@/lib/simulation/reducers/upgrades";
 
@@ -18,11 +18,11 @@ function renderAtPath(pathname: string) {
   return render(<App />);
 }
 
-function createSkiffOperatorRun() {
+function createSkiffOperatorRun(): RunState {
   const starterRun = createStarterRun();
-  let run = {
+  let run: RunState = {
     ...starterRun,
-    phase: "skiffOperator" as const,
+    phase: "skiffOperator",
     cash: 1_000,
     lifetimeFishLanded: 60,
     lifetimeRevenue: 250,
@@ -40,12 +40,12 @@ function createSkiffOperatorRun() {
   return run;
 }
 
-function createDocksideGearRun() {
+function createDocksideGearRun(): RunState {
   const starterRun = createStarterRun();
 
-  return {
+  const run: RunState = {
     ...starterRun,
-    phase: "docksideGear" as const,
+    phase: "docksideGear",
     lifetimeFishLanded: 150,
     lifetimeRevenue: 750,
     facilities: {
@@ -75,10 +75,12 @@ function createDocksideGearRun() {
       phasesSeen: ["quietPier", "skiffOperator", "docksideGear"],
     },
   };
+
+  return run;
 }
 
-function createPassiveGearRun() {
-  let run = {
+function createPassiveGearRun(): RunState {
+  let run: RunState = {
     ...createDocksideGearRun(),
     cash: 2_000,
     facilities: {
@@ -90,6 +92,26 @@ function createPassiveGearRun() {
   };
 
   run = purchaseUpgrade(run, "crabPot").run;
+
+  return run;
+}
+
+function createUnlockModalRun(): RunState {
+  const starterRun = createStarterRun();
+
+  const run: RunState = {
+    ...starterRun,
+    phase: "skiffOperator",
+    lifetimeFishLanded: 60,
+    lifetimeRevenue: 250,
+    unlocks: {
+      ...starterRun.unlocks,
+      tabs: ["harbor", "fleet", "settings"],
+      phasesSeen: ["quietPier", "skiffOperator"],
+      pendingPhaseModalIds: ["skiffOperator"],
+      dismissedPhaseModalIds: [],
+    },
+  };
 
   return run;
 }
@@ -411,6 +433,29 @@ describe("App bootstrap", () => {
 
     expect(gameStore.getState().run.facilities.dockStorageRawFish).toBeCloseTo(10.8);
     expect(screen.getByTestId("gear-storage")).toHaveTextContent(/11 \/ 20/i);
+  });
+
+  it("renders a one-time phase unlock modal and dismisses it safely while showing the progress summary", async () => {
+    const user = userEvent.setup();
+
+    act(() => {
+      gameStore.getState().replaceRun(createUnlockModalRun());
+    });
+
+    renderAtPath("/play");
+
+    expect(screen.getByTestId("phase-unlock-modal")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /skiff operator unlocked/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("progress-summary")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /keep the dock moving/i }));
+
+    expect(screen.queryByTestId("phase-unlock-modal")).not.toBeInTheDocument();
+    expect(gameStore.getState().run.unlocks.dismissedPhaseModalIds).toContain(
+      "skiffOperator",
+    );
   });
 
   it("casts through timing windows on the live play route", () => {

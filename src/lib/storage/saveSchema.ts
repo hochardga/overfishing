@@ -135,6 +135,8 @@ export const unlockStateSchema = z.object({
   ),
   upgrades: z.array(z.string()),
   phasesSeen: z.array(phaseIdSchema),
+  pendingPhaseModalIds: z.array(phaseIdSchema).default([]),
+  dismissedPhaseModalIds: z.array(phaseIdSchema).default([]),
 });
 
 export const notificationStateSchema = z.object({
@@ -246,6 +248,8 @@ export function createStarterRun(): RunState {
       tabs: ["harbor", "settings"],
       upgrades: [],
       phasesSeen: ["quietPier"],
+      pendingPhaseModalIds: [],
+      dismissedPhaseModalIds: [],
     },
     notifications: [],
   };

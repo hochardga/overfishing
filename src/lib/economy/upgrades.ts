@@ -1,6 +1,19 @@
 import type { PhaseId, RegionId } from "@/lib/storage/saveSchema";
 
-export type UpgradeId = keyof typeof upgradeDefinitions;
+export type UpgradeId =
+  | "betterBait"
+  | "handReel"
+  | "tackleTin"
+  | "luckyHat"
+  | "saltedLunch"
+  | "harborMap"
+  | "rustySkiff"
+  | "outboardMotor"
+  | "iceChest"
+  | "rodRack"
+  | "crabPot"
+  | "longline"
+  | "hireCousin";
 
 export type ManualUpgradeEffects = {
   perfectZoneWidthMultiplier: number;
@@ -33,7 +46,7 @@ type UpgradeDefinition = {
   helper?: HelperUpgradeEffects;
 };
 
-export const upgradeDefinitions = {
+export const upgradeDefinitions: Record<UpgradeId, UpgradeDefinition> = {
   betterBait: {
     id: "betterBait",
     label: "Better Bait",
@@ -165,7 +178,7 @@ export const upgradeDefinitions = {
       autoHaulIntervalSeconds: 90,
     },
   },
-} as const satisfies Record<string, UpgradeDefinition>;
+};
 
 export function getUpgradeDefinition(upgradeId: UpgradeId) {
   return upgradeDefinitions[upgradeId];

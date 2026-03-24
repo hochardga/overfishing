@@ -7,6 +7,7 @@ import {
 } from "@/lib/storage/saveAdapter";
 import {
   createStarterRun,
+  type PhaseId,
   type RegionId,
   type RunState,
 } from "@/lib/storage/saveSchema";
@@ -31,7 +32,10 @@ import {
   purchaseUpgrade as purchaseUpgradeReducer,
   type UpgradePurchaseResult,
 } from "@/lib/simulation/reducers/upgrades";
-import { applyUnlockChecks } from "@/lib/simulation/reducers/unlocks";
+import {
+  applyUnlockChecks,
+  dismissPhaseUnlockModal as dismissPhaseUnlockModalReducer,
+} from "@/lib/simulation/reducers/unlocks";
 import { advanceRunBySeconds } from "@/lib/simulation/tickEngine";
 
 export type GameStoreState = {
@@ -47,6 +51,7 @@ export type GameStoreState = {
   startSkiffTrip: (boatId: string, regionId: RegionId) => StartSkiffTripResult;
   refuelSkiff: (boatId: string) => RefuelSkiffResult;
   collectPassiveGear: (gearId: string) => CollectPassiveGearResult;
+  dismissPhaseUnlockModal: (phaseId: PhaseId) => RunState;
 };
 
 const createState = (initialRun: RunState = createStarterRun()) =>
@@ -247,6 +252,18 @@ const createState = (initialRun: RunState = createStarterRun()) =>
           ...result,
           run: normalizedRun,
         };
+      },
+      dismissPhaseUnlockModal: (phaseId) => {
+        const nextRun = normalizeRun(
+          dismissPhaseUnlockModalReducer(get().run, phaseId),
+        );
+
+        set({
+          run: nextRun,
+        });
+        persistRun(nextRun);
+
+        return nextRun;
       },
     };
   });

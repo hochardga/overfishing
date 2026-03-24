@@ -119,7 +119,6 @@ export function purchaseUpgrade(
       "purchased",
       definition.label,
       definition.cost,
-      purchasedRun.cash,
     ),
   };
 }

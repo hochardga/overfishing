@@ -1,15 +1,15 @@
-import { createStarterRun } from "@/lib/storage/saveSchema";
+import { createStarterRun, type RunState } from "@/lib/storage/saveSchema";
 import { selectGearPanelState } from "@/lib/simulation/selectors";
 import { collectPassiveGear } from "@/lib/simulation/reducers/passiveGear";
 import { purchaseUpgrade } from "@/lib/simulation/reducers/upgrades";
 import { advanceRunBySeconds } from "@/lib/simulation/tickEngine";
 
-function createDocksideGearRun() {
+function createDocksideGearRun(): RunState {
   const starterRun = createStarterRun();
 
-  return {
+  const run: RunState = {
     ...starterRun,
-    phase: "docksideGear" as const,
+    phase: "docksideGear",
     lifetimeFishLanded: 150,
     lifetimeRevenue: 750,
     unlocks: {
@@ -26,11 +26,13 @@ function createDocksideGearRun() {
       gearSlotCap: 2,
     },
   };
+
+  return run;
 }
 
 describe("storage and passive gear", () => {
   it("pauses passive output instead of overflowing dock storage", () => {
-    let run = {
+    let run: RunState = {
       ...createDocksideGearRun(),
       cash: 1_000,
       facilities: {
@@ -47,11 +49,13 @@ describe("storage and passive gear", () => {
     });
 
     expect(hauled.run.facilities.dockStorageRawFish).toBe(20);
+    expect(hauled.blockedFish).toBeCloseTo(10.3);
+    expect(hauled.run.gear.crabPot01.bufferedCatch).toBeCloseTo(10.3);
     expect(hauled.run.gear.crabPot01.blockedByStorage).toBe(true);
   });
 
   it("decays docked fish value over time while fish sit in storage", () => {
-    const run = {
+    const run: RunState = {
       ...createDocksideGearRun(),
       facilities: {
         ...createDocksideGearRun().facilities,
@@ -67,7 +71,7 @@ describe("storage and passive gear", () => {
   });
 
   it("reports gear slot usage and paused rigs through the storage selector", () => {
-    const run = {
+    const run: RunState = {
       ...createDocksideGearRun(),
       facilities: {
         ...createDocksideGearRun().facilities,
@@ -98,7 +102,7 @@ describe("storage and passive gear", () => {
   });
 
   it("deploys purchased crab pots and longlines into the available gear slots", () => {
-    let run = {
+    let run: RunState = {
       ...createDocksideGearRun(),
       cash: 2_000,
     };
@@ -114,7 +118,7 @@ describe("storage and passive gear", () => {
   });
 
   it("lets the player haul buffered crab-pot catch into storage before the window closes", () => {
-    let run = {
+    let run: RunState = {
       ...createDocksideGearRun(),
       cash: 1_000,
     };
@@ -135,7 +139,7 @@ describe("storage and passive gear", () => {
   });
 
   it("auto-hauls passive gear every 90 seconds when Hire Cousin is owned", () => {
-    let run = {
+    let run: RunState = {
       ...createDocksideGearRun(),
       cash: 2_000,
     };

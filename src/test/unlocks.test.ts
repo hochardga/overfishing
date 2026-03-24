@@ -1,18 +1,22 @@
-import { createStarterRun } from "@/lib/storage/saveSchema";
+import { createStarterRun, type RunState } from "@/lib/storage/saveSchema";
 import { performManualCast } from "@/lib/simulation/reducers/manualFishing";
 import {
   refuelSkiff,
   startSkiffTrip,
 } from "@/lib/simulation/reducers/skiffTrips";
+import {
+  applyUnlockChecks,
+  dismissPhaseUnlockModal,
+} from "@/lib/simulation/reducers/unlocks";
 import { purchaseUpgrade } from "@/lib/simulation/reducers/upgrades";
 import { advanceRunBySeconds } from "@/lib/simulation/tickEngine";
 
-function createSkiffOperatorRun(cash: number) {
+function createSkiffOperatorRun(cash: number): RunState {
   const starterRun = createStarterRun();
 
-  return {
+  const run: RunState = {
     ...starterRun,
-    phase: "skiffOperator" as const,
+    phase: "skiffOperator",
     cash,
     lifetimeFishLanded: 60,
     lifetimeRevenue: 250,
@@ -23,6 +27,8 @@ function createSkiffOperatorRun(cash: number) {
       phasesSeen: ["quietPier", "skiffOperator"],
     },
   };
+
+  return run;
 }
 
 describe("upgrade purchases and unlock checks", () => {
@@ -77,7 +83,7 @@ describe("upgrade purchases and unlock checks", () => {
   });
 
   it("keeps Quiet Pier upgrades purchasable after Skiff Operator unlocks", () => {
-    const run = {
+    const run: RunState = {
       ...createStarterRun(),
       phase: "skiffOperator" as const,
       cash: 100,
@@ -163,5 +169,51 @@ describe("upgrade purchases and unlock checks", () => {
 
     expect(refueled.outcome).toBe("refueled");
     expect(refueled.run.boats.rustySkiff.fuelCurrent).toBe(20);
+  });
+
+  it("queues phase unlock modals in order when multiple thresholds are crossed together", () => {
+    const starterRun = createStarterRun();
+    const run = applyUnlockChecks({
+      ...starterRun,
+      phase: "quietPier",
+      lifetimeFishLanded: 200,
+      lifetimeRevenue: 900,
+      unlocks: {
+        ...starterRun.unlocks,
+        upgrades: ["rustySkiff"],
+        phasesSeen: ["quietPier"],
+        pendingPhaseModalIds: [],
+        dismissedPhaseModalIds: [],
+      },
+    });
+
+    expect(run.phase).toBe("docksideGear");
+    expect(run.unlocks.pendingPhaseModalIds).toEqual([
+      "skiffOperator",
+      "docksideGear",
+    ]);
+  });
+
+  it("dismisses an unlock modal once without re-queuing it on later checks", () => {
+    const starterRun = createStarterRun();
+    const unlockedRun = applyUnlockChecks({
+      ...starterRun,
+      lifetimeFishLanded: 60,
+      lifetimeRevenue: 250,
+      unlocks: {
+        ...starterRun.unlocks,
+        pendingPhaseModalIds: [],
+        dismissedPhaseModalIds: [],
+      },
+    });
+
+    const dismissedRun = dismissPhaseUnlockModal(unlockedRun, "skiffOperator");
+    const afterRecheck = applyUnlockChecks(dismissedRun);
+
+    expect(dismissedRun.unlocks.pendingPhaseModalIds).toEqual([]);
+    expect(dismissedRun.unlocks.dismissedPhaseModalIds).toContain(
+      "skiffOperator",
+    );
+    expect(afterRecheck.unlocks.pendingPhaseModalIds).toEqual([]);
   });
 });
