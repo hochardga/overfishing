@@ -2,9 +2,9 @@ export const boatDefinitions = {
   rustySkiff: {
     id: "rustySkiff",
     label: "Rusty Skiff",
-    fuelCap: 12,
-    holdCap: 18,
-    catchRatePerSecond: 0.45,
+    fuelCap: 20,
+    holdCap: 15,
+    catchRatePerSecond: 0.8,
     maintenanceDecayPerMinute: 0.2,
   },
   workSkiff: {

@@ -1,16 +1,130 @@
-import { render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { vi } from "vitest";
 
 import App from "@/App";
+import { createStarterRun, type RunState } from "@/lib/storage/saveSchema";
+import { createGameStore, gameStore } from "@/lib/simulation/gameStore";
+import { purchaseUpgrade } from "@/lib/simulation/reducers/upgrades";
 
 function renderAtPath(pathname: string) {
   window.history.pushState({}, "", pathname);
   return render(<App />);
 }
 
+function createSkiffOperatorRun(): RunState {
+  const starterRun = createStarterRun();
+  let run: RunState = {
+    ...starterRun,
+    phase: "skiffOperator",
+    cash: 1_000,
+    lifetimeFishLanded: 60,
+    lifetimeRevenue: 250,
+    unlocks: {
+      ...starterRun.unlocks,
+      tabs: ["harbor", "fleet", "settings"],
+      upgrades: [],
+      phasesSeen: ["quietPier", "skiffOperator"],
+    },
+  };
+
+  run = purchaseUpgrade(run, "harborMap").run;
+  run = purchaseUpgrade(run, "rustySkiff").run;
+
+  return run;
+}
+
+function createDocksideGearRun(): RunState {
+  const starterRun = createStarterRun();
+
+  const run: RunState = {
+    ...starterRun,
+    phase: "docksideGear",
+    lifetimeFishLanded: 150,
+    lifetimeRevenue: 750,
+    facilities: {
+      ...starterRun.facilities,
+      dockStorageCap: 20,
+      dockStorageRawFish: 20,
+      dockStorageQuality: 0.9,
+      gearSlotCap: 2,
+    },
+    gear: {
+      crabPot01: {
+        id: "crabPot01",
+        kind: "crabPot" as const,
+        assignedRegionId: "pierCove" as const,
+        outputPerSecond: 0.18,
+        collectionIntervalSeconds: 120,
+        secondsSinceCollection: 0,
+        bufferedCatch: 0,
+        active: true,
+        blockedByStorage: true,
+      },
+    },
+    unlocks: {
+      ...starterRun.unlocks,
+      tabs: ["harbor", "fleet", "settings"],
+      upgrades: ["harborMap", "rustySkiff"],
+      phasesSeen: ["quietPier", "skiffOperator", "docksideGear"],
+    },
+  };
+
+  return run;
+}
+
+function createPassiveGearRun(): RunState {
+  let run: RunState = {
+    ...createDocksideGearRun(),
+    cash: 2_000,
+    facilities: {
+      ...createDocksideGearRun().facilities,
+      dockStorageRawFish: 0,
+      dockStorageQuality: 1,
+    },
+    gear: {},
+  };
+
+  run = purchaseUpgrade(run, "crabPot").run;
+
+  return run;
+}
+
+function createUnlockModalRun(): RunState {
+  const starterRun = createStarterRun();
+
+  const run: RunState = {
+    ...starterRun,
+    phase: "skiffOperator",
+    lifetimeFishLanded: 60,
+    lifetimeRevenue: 250,
+    unlocks: {
+      ...starterRun.unlocks,
+      tabs: ["harbor", "fleet", "settings"],
+      phasesSeen: ["quietPier", "skiffOperator"],
+      pendingPhaseModalIds: ["skiffOperator"],
+      dismissedPhaseModalIds: [],
+    },
+  };
+
+  return run;
+}
+
 describe("App bootstrap", () => {
   beforeEach(() => {
+    gameStore.getState().stopSimulationLoop();
+    gameStore.getState().resetRun();
     localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("shows the product name in the initial shell", () => {
@@ -47,6 +161,117 @@ describe("App bootstrap", () => {
     ).toBeInTheDocument();
   });
 
+  it("surfaces the Quiet Pier upgrade shop on the play route", () => {
+    renderAtPath("/play");
+
+    expect(
+      screen.getByRole("heading", { name: /quiet pier upgrades/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /buy better bait/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /skiff operator unlocks at 60 lifetime fish landed and \$250 lifetime revenue/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/locked until skiff operator/i).length).toBeGreaterThan(0);
+  });
+
+  it("keeps next-phase progress anchored to the slower unlock requirement", () => {
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun({
+        ...state.run,
+        lifetimeFishLanded: 60,
+        lifetimeRevenue: 100,
+      });
+    });
+
+    renderAtPath("/play");
+
+    const shop = screen.getByTestId("upgrade-shop");
+    const progressFill = shop.querySelector('div[style*="width"]');
+
+    expect(progressFill).not.toBeNull();
+    expect(progressFill).toHaveStyle({ width: "40%" });
+    expect(screen.getByText(/the dock is still warming up/i)).toBeInTheDocument();
+  });
+
+  it("switches the next-phase panel to a terminal message once all configured unlocks are active", () => {
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun({
+        ...state.run,
+        phase: "docksideGear",
+        lifetimeFishLanded: 200,
+        lifetimeRevenue: 900,
+        unlocks: {
+          ...state.run.unlocks,
+          phasesSeen: ["quietPier", "skiffOperator", "docksideGear"],
+          upgrades: ["rustySkiff"],
+          tabs: ["harbor", "fleet", "settings"],
+        },
+      });
+    });
+
+    renderAtPath("/play");
+
+    expect(
+      screen.getByText(/all currently configured phase unlocks are active/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/no further thresholds are waiting in this slice/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/dockside gear is ready to unlock/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/all configured phase unlocks are already active/i),
+    ).toBeInTheDocument();
+  });
+
+  it("buys a Quiet Pier upgrade through the live shop", async () => {
+    const user = userEvent.setup();
+
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun({
+        ...state.run,
+        cash: 100,
+      });
+    });
+
+    renderAtPath("/play");
+
+    await user.click(screen.getByRole("button", { name: /buy better bait/i }));
+
+    expect(gameStore.getState().run.unlocks.upgrades).toContain("betterBait");
+    expect(gameStore.getState().run.cash).toBe(85);
+    expect(screen.getByRole("button", { name: /owned/i })).toBeInTheDocument();
+  });
+
+  it("rehydrates purchased upgrades from saved data after a refresh", async () => {
+    const user = userEvent.setup();
+
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun({
+        ...state.run,
+        cash: 100,
+      });
+    });
+
+    renderAtPath("/play");
+    await user.click(screen.getByRole("button", { name: /buy better bait/i }));
+
+    const freshStore = createGameStore();
+    freshStore.getState().initialize();
+
+    expect(freshStore.getState().run.unlocks.upgrades).toContain("betterBait");
+    expect(freshStore.getState().run.cash).toBe(85);
+  });
+
   it("renders the play shell status rail and three columns at /play", () => {
     renderAtPath("/play");
 
@@ -54,6 +279,249 @@ describe("App bootstrap", () => {
     expect(screen.getByLabelText("primary column")).toBeInTheDocument();
     expect(screen.getByLabelText("active panel column")).toBeInTheDocument();
     expect(screen.getByLabelText("operations column")).toBeInTheDocument();
+  });
+
+  it("renders a live cast control on the play route", () => {
+    renderAtPath("/play");
+
+    expect(
+      screen.getByRole("button", { name: /cast line/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/perfect window/i)).toBeInTheDocument();
+  });
+
+  it("renders the early resource rail with selector-backed labels", () => {
+    renderAtPath("/play");
+
+    const hud = screen.getByTestId("early-hud");
+
+    expect(within(hud).getByText(/cash in hand/i)).toBeInTheDocument();
+    expect(within(hud).getByText(/fish nearby/i)).toBeInTheDocument();
+    expect(within(hud).getByText(/cast cooldown/i)).toBeInTheDocument();
+    expect(within(hud).getByText(/stock pressure/i)).toBeInTheDocument();
+    expect(screen.getByTestId("early-nearby-fish")).toHaveTextContent(
+      /120 \/ 120/i,
+    );
+    expect(screen.getByTestId("early-cast-cooldown")).toHaveTextContent(
+      /ready to cast/i,
+    );
+    expect(screen.getByTestId("early-stock-pressure")).toHaveTextContent(
+      /stable/i,
+    );
+  });
+
+  it("updates stock pressure as the pier stock falls", () => {
+    renderAtPath("/play");
+
+    expect(screen.getByTestId("early-stock-pressure")).toHaveTextContent(
+      /stable/i,
+    );
+    expect(screen.getByTestId("early-stock-pressure")).toHaveTextContent(
+      /catch speed 100%, fish value 100%/i,
+    );
+    expect(screen.getByTestId("early-stock-pressure-meter")).toHaveStyle({
+      width: "0%",
+    });
+
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun({
+        ...state.run,
+        regions: {
+          ...state.run.regions,
+          pierCove: {
+            ...state.run.regions.pierCove,
+            stockCurrent: 30,
+          },
+        },
+      });
+    });
+
+    expect(screen.getByTestId("early-stock-pressure")).toHaveTextContent(
+      /strained/i,
+    );
+    expect(screen.getByTestId("early-stock-pressure")).toHaveTextContent(
+      /catch speed 60%, fish value 125%/i,
+    );
+    expect(screen.getByTestId("early-stock-pressure-meter")).toHaveStyle({
+      width: "75%",
+    });
+  });
+
+  it("renders live skiff trip controls and pays out a Kelp Bed run on the play route", async () => {
+    const user = userEvent.setup();
+
+    act(() => {
+      gameStore.getState().replaceRun(createSkiffOperatorRun());
+    });
+
+    renderAtPath("/play");
+
+    const panel = screen.getByTestId("skiff-panel");
+
+    expect(
+      within(panel).getByRole("heading", { name: /rusty skiff/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("skiff-fuel")).toHaveTextContent(/20 \/ 20/i);
+    expect(screen.getByTestId("skiff-hold")).toHaveTextContent(/0 \/ 15/i);
+
+    await user.click(
+      within(panel).getByRole("button", { name: /run kelp bed trip/i }),
+    );
+
+    expect(gameStore.getState().run.boats.rustySkiff.assignedRegionId).toBe(
+      "kelpBed",
+    );
+    expect(screen.getByTestId("skiff-fuel")).toHaveTextContent(/14 \/ 20/i);
+    expect(
+      within(panel).getByRole("button", { name: /kelp bed trip underway/i }),
+    ).toBeDisabled();
+
+    act(() => {
+      gameStore.getState().tick(20);
+    });
+
+    expect(gameStore.getState().run.cash).toBe(675);
+    expect(screen.getByTestId("skiff-hold")).toHaveTextContent(/0 \/ 15/i);
+    expect(
+      within(panel).getByRole("button", { name: /run kelp bed trip/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders dock storage pressure and gear slot usage once Dockside Gear is unlocked", () => {
+    act(() => {
+      gameStore.getState().replaceRun(createDocksideGearRun());
+    });
+
+    renderAtPath("/play");
+
+    const panel = screen.getByTestId("gear-panel");
+
+    expect(
+      within(panel).getByRole("heading", { name: /dock storage/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("gear-storage")).toHaveTextContent(/20 \/ 20/i);
+    expect(screen.getByTestId("gear-slots")).toHaveTextContent(/1 \/ 2/i);
+    expect(
+      within(panel).getByText(/1 gear rig paused by full storage/i),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("gear-decay")).toHaveTextContent(/90%/i);
+  });
+
+  it("renders gear cards and lets a crab pot haul buffered catch into storage", async () => {
+    const user = userEvent.setup();
+
+    act(() => {
+      gameStore.getState().replaceRun(createPassiveGearRun());
+    });
+
+    renderAtPath("/play");
+
+    const panel = screen.getByTestId("gear-panel");
+
+    expect(
+      within(panel).getByRole("heading", { name: /crab pot/i }),
+    ).toBeInTheDocument();
+
+    act(() => {
+      gameStore.getState().tick(60);
+    });
+
+    expect(screen.getByTestId("gear-storage")).toHaveTextContent(/0 \/ 20/i);
+
+    await user.click(screen.getByRole("button", { name: /haul crab pot/i }));
+
+    expect(gameStore.getState().run.facilities.dockStorageRawFish).toBeCloseTo(10.8);
+    expect(screen.getByTestId("gear-storage")).toHaveTextContent(/11 \/ 20/i);
+  });
+
+  it("renders a one-time phase unlock modal and dismisses it safely while showing the progress summary", async () => {
+    const user = userEvent.setup();
+
+    act(() => {
+      gameStore.getState().replaceRun(createUnlockModalRun());
+    });
+
+    renderAtPath("/play");
+
+    expect(screen.getByTestId("phase-unlock-modal")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /skiff operator unlocked/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("progress-summary")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /keep the dock moving/i }));
+
+    expect(screen.queryByTestId("phase-unlock-modal")).not.toBeInTheDocument();
+    expect(gameStore.getState().run.unlocks.dismissedPhaseModalIds).toContain(
+      "skiffOperator",
+    );
+  });
+
+  it("casts through timing windows on the live play route", () => {
+    vi.useFakeTimers();
+
+    renderAtPath("/play");
+    fireEvent.click(screen.getByRole("button", { name: /cast line/i }));
+
+    expect(
+      screen.getByText(/perfect pull: \+2 fish, \+\$8\./i),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("early-cash")).toHaveTextContent("$8");
+    expect(screen.getByTestId("early-nearby-fish")).toHaveTextContent(
+      /118 \/ 120/i,
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(3_000);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /cast line/i }));
+
+    expect(screen.getByText(/clean cast: \+1 fish, \+\$4\./i)).toBeInTheDocument();
+    expect(screen.getByTestId("early-cash")).toHaveTextContent("$12");
+    expect(screen.getByTestId("early-nearby-fish")).toHaveTextContent(
+      /118 \/ 120/i,
+    );
+    expect(screen.getByTestId("early-cast-cooldown")).toHaveTextContent(
+      /ready in 2\.2s/i,
+    );
+  });
+
+  it("keeps manual progress when the play route remounts in the same session", () => {
+    vi.useFakeTimers();
+
+    const firstRender = renderAtPath("/play");
+    fireEvent.click(screen.getByRole("button", { name: /cast line/i }));
+
+    expect(screen.getByTestId("early-cash")).toHaveTextContent("$8");
+
+    firstRender.unmount();
+    renderAtPath("/play");
+
+    expect(screen.getByTestId("early-cash")).toHaveTextContent("$8");
+    expect(screen.getByTestId("early-nearby-fish")).toHaveTextContent(
+      /118 \/ 120/i,
+    );
+  });
+
+  it("persists live play progress before the page unloads", () => {
+    vi.useFakeTimers();
+
+    renderAtPath("/play");
+    fireEvent.click(screen.getByRole("button", { name: /cast line/i }));
+
+    act(() => {
+      vi.advanceTimersByTime(1_000);
+    });
+
+    window.dispatchEvent(new Event("beforeunload"));
+
+    const storedSave = JSON.parse(localStorage.getItem("overfishing-save") ?? "{}");
+
+    expect(storedSave.run.cash).toBe(8);
+    expect(storedSave.run.manual.cooldownMs).toBe(1_200);
+    expect(storedSave.run.regions.pierCove.stockCurrent).toBeCloseTo(118.5, 5);
   });
 
   it("renders a distinct settings page shell at /settings", () => {

@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 import { getPhaseDefinition } from "@/lib/economy/phases";
-import { regionDefinitions } from "@/lib/economy/regions";
+import {
+  applyRegionsStockPressure,
+  regionDefinitions,
+} from "@/lib/economy/regions";
 
 export const phaseIdSchema = z.enum([
   "quietPier",
@@ -63,18 +66,22 @@ export const gearStateSchema = z.object({
   outputPerSecond: z.number(),
   collectionIntervalSeconds: z.number(),
   secondsSinceCollection: z.number(),
+  bufferedCatch: z.number().default(0),
   active: z.boolean(),
+  blockedByStorage: z.boolean().default(false),
 });
 
 export const boatStateSchema = z.object({
   id: z.string(),
   model: z.enum(["rustySkiff", "workSkiff"]),
   automated: z.boolean(),
+  status: z.enum(["docked", "fishing"]),
   assignedRegionId: regionIdSchema.nullable(),
   holdCap: z.number(),
   holdCurrent: z.number(),
   fuelCap: z.number(),
   fuelCurrent: z.number(),
+  tripSeconds: z.number(),
   maintenancePercent: z.number(),
   catchRatePerSecond: z.number(),
   crewAssigned: z.boolean(),
@@ -94,6 +101,8 @@ export const processingQueueStateSchema = z.object({
 export const facilityStateSchema = z.object({
   dockStorageCap: z.number(),
   dockStorageRawFish: z.number(),
+  dockStorageQuality: z.number().default(1),
+  gearSlotCap: z.number().default(2),
   coldStorageCap: z.number(),
   coldStorageRawFish: z.number(),
   unloadLanes: z.number(),
@@ -126,6 +135,8 @@ export const unlockStateSchema = z.object({
   ),
   upgrades: z.array(z.string()),
   phasesSeen: z.array(phaseIdSchema),
+  pendingPhaseModalIds: z.array(phaseIdSchema).default([]),
+  dismissedPhaseModalIds: z.array(phaseIdSchema).default([]),
 });
 
 export const notificationStateSchema = z.object({
@@ -182,15 +193,17 @@ export function createDefaultSettings(): SettingsState {
 
 export function createStarterRun(): RunState {
   const quietPier = getPhaseDefinition("quietPier");
-  const regions = Object.fromEntries(
-    Object.values(regionDefinitions).map((region) => [
-      region.id,
-      {
-        ...region,
-        stockCurrent: region.stockCap,
-      },
-    ]),
-  ) as RunState["regions"];
+  const regions = applyRegionsStockPressure(
+    Object.fromEntries(
+      Object.values(regionDefinitions).map((region) => [
+        region.id,
+        {
+          ...region,
+          stockCurrent: region.stockCap,
+        },
+      ]),
+    ) as RunState["regions"],
+  );
 
   return {
     phase: "quietPier",
@@ -210,8 +223,10 @@ export function createStarterRun(): RunState {
     gear: {},
     boats: {},
     facilities: {
-      dockStorageCap: 25,
+      dockStorageCap: 20,
       dockStorageRawFish: 0,
+      dockStorageQuality: 1,
+      gearSlotCap: 2,
       coldStorageCap: 0,
       coldStorageRawFish: 0,
       unloadLanes: 1,
@@ -233,6 +248,8 @@ export function createStarterRun(): RunState {
       tabs: ["harbor", "settings"],
       upgrades: [],
       phasesSeen: ["quietPier"],
+      pendingPhaseModalIds: [],
+      dismissedPhaseModalIds: [],
     },
     notifications: [],
   };

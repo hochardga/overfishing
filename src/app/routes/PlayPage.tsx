@@ -2,97 +2,111 @@ import { useEffect } from "react";
 
 import { Link } from "react-router-dom";
 
+import { EarlyHud } from "@/components/game/EarlyHud";
 import { GameShell } from "@/components/game/GameShell";
+import { PhaseUnlockModal } from "@/components/game/PhaseUnlockModal";
+import { ProgressSummary } from "@/components/game/ProgressSummary";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { SkiffPanel } from "@/features/fleet/SkiffPanel";
+import { CastButton } from "@/features/fishing/CastButton";
+import { GearPanel } from "@/features/gear/GearPanel";
+import { UpgradeShop } from "@/features/upgrades/UpgradeShop";
 import { useGameStore } from "@/lib/simulation/gameStore";
-import { selectStatusRailItems } from "@/lib/simulation/selectors";
+import {
+  selectActivePhaseUnlockModalState,
+  selectProgressSummaryState,
+  selectStatusRailItems,
+} from "@/lib/simulation/selectors";
 
 export default function PlayPage() {
   const initialize = useGameStore((state) => state.initialize);
+  const stopSimulationLoop = useGameStore((state) => state.stopSimulationLoop);
   const run = useGameStore((state) => state.run);
+  const activePhaseUnlock = selectActivePhaseUnlockModalState(run);
+  const progressSummary = selectProgressSummaryState(run);
 
   useEffect(() => {
     initialize();
-  }, [initialize]);
+    return () => {
+      stopSimulationLoop();
+    };
+  }, [initialize, stopSimulationLoop]);
 
   return (
-    <GameShell
-      centerColumn={
-        <>
-          <Card className="space-y-3">
-            <div className="inline-flex w-fit rounded-full bg-surface-raised px-4 py-2 text-xs font-medium uppercase tracking-[0.16em] text-secondary">
-              Play route
-            </div>
-            <h1 className="font-heading text-4xl text-text">
-              Harbor operations
-            </h1>
-            <p className="text-lg text-text-muted">
-              The play route now uses the shared shell that later systems will
-              inhabit, while staying deliberately light until the store and save
-              layers are wired in.
-            </p>
-          </Card>
-          <Card className="space-y-3">
-            <h2 className="font-heading text-2xl">Active panel</h2>
-            <p className="text-sm text-text-muted">
-              Manual casting, upgrade purchasing, and first-stock pressure will
-              take over this space in the next phase.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Button disabled>Awaiting simulation state</Button>
+    <>
+      <GameShell
+        leftColumn={
+          <>
+            <Card className="space-y-3">
+              <div className="inline-flex w-fit rounded-full bg-surface-raised px-4 py-2 text-xs font-medium uppercase tracking-[0.16em] text-secondary">
+                First cast
+              </div>
+              <h1 className="font-heading text-4xl text-text">
+                Harbor operations
+              </h1>
+              <p className="text-lg text-text-muted">
+                The early dock loop is live. Cast normally for a steady payout
+                or aim for a perfect pull when you want the bigger reward.
+              </p>
+            </Card>
+            <Card className="space-y-3">
+              <h2 className="font-heading text-2xl">Why it matters</h2>
+              <p className="text-sm text-text-muted">
+                The game should teach money, stock, and timing without hiding the
+                reward. The next systems build on that same loop.
+              </p>
+            </Card>
+            <Card className="space-y-3">
+              <h2 className="font-heading text-2xl">Quick exit</h2>
               <Link
                 className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-surface-raised px-5 py-3 text-sm font-semibold text-text shadow-soft"
                 to="/"
               >
                 Back to landing
               </Link>
-            </div>
-          </Card>
-        </>
-      }
-      leftColumn={
-        <>
-          <Card className="space-y-3">
-            <h2 className="font-heading text-2xl">Primary action</h2>
-            <p className="text-sm text-text-muted">
-              The left column is reserved for the player’s immediate loop and
-              early explanation copy.
-            </p>
-          </Card>
-          <Card className="space-y-3">
-            <h2 className="font-heading text-2xl">Run overview</h2>
-            <p className="font-mono text-sm text-text-muted">
-              {selectStatusRailItems(run)[0]?.value} is active. Starter
-              resources and first actions now read from the deterministic run
-              state.
-            </p>
-          </Card>
-        </>
-      }
-      rightColumn={
-        <>
-          <Card
-            className="space-y-3"
-            tone="industrial"
-          >
-            <h2 className="font-heading text-2xl">Operations rail</h2>
-            <p className="text-sm text-surface-raised/75">
-              Future tabs for harbor, fleet, processing, and regions will stack
-              here as the player’s role hardens.
-            </p>
-          </Card>
-          <Card className="space-y-3">
-            <h2 className="font-heading text-2xl">System notes</h2>
-            <ul className="space-y-2 text-sm text-text-muted">
-              <li>Status rail is live.</li>
-              <li>Three-column desktop shell is in place.</li>
-              <li>Responsive collapse is handled by the grid.</li>
-            </ul>
-          </Card>
-        </>
-      }
-      statusItems={selectStatusRailItems(run)}
-    />
+            </Card>
+          </>
+        }
+        centerColumn={
+          <>
+            <EarlyHud run={run} />
+            <ProgressSummary summary={progressSummary} />
+            <CastButton />
+            {run.unlocks.phasesSeen.includes("skiffOperator") ? (
+              <SkiffPanel run={run} />
+            ) : null}
+            {run.unlocks.phasesSeen.includes("docksideGear") ? (
+              <GearPanel run={run} />
+            ) : null}
+          </>
+        }
+        rightColumn={
+          <>
+            <Card
+              className="space-y-3"
+              tone="industrial"
+            >
+              <h2 className="font-heading text-2xl">Dock notes</h2>
+              <p className="text-sm text-surface-raised/75">
+                Manual casts resolve directly into cash for now, so the reward
+                lands immediately and the dock stays easy to read.
+              </p>
+            </Card>
+            <UpgradeShop run={run} />
+            <Card className="space-y-3">
+              <h2 className="font-heading text-2xl">Reading the rail</h2>
+              <p className="text-sm text-text-muted">
+                Cash lands immediately, nearby stock shows how many fish are left
+                in Pier Cove, cooldown tells you when the line settles, and
+                stock pressure explains why the pull gets slower or richer as the
+                cove thins out.
+              </p>
+            </Card>
+          </>
+        }
+        statusItems={selectStatusRailItems(run)}
+      />
+      {activePhaseUnlock ? <PhaseUnlockModal modal={activePhaseUnlock} /> : null}
+    </>
   );
 }
