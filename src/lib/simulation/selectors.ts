@@ -1,4 +1,6 @@
-import type { RunState } from "@/lib/storage/saveSchema";
+import type { RegionId, RunState } from "@/lib/storage/saveSchema";
+import { getBoatDefinition } from "@/lib/economy/boats";
+import { getContractDefinition } from "@/lib/economy/contracts";
 import { getPhaseDefinition } from "@/lib/economy/phases";
 import { upgradeDefinitions } from "@/lib/economy/upgrades";
 import {
@@ -6,10 +8,23 @@ import {
   getRegionDefinition,
 } from "@/lib/economy/regions";
 import {
+  syncContractsState,
+} from "@/lib/simulation/reducers/contracts";
+import {
+  syncFleetState,
+} from "@/lib/simulation/reducers/fleet";
+import { syncFacilitiesState } from "@/lib/simulation/reducers/facilities";
+import {
   getManualCastCycleMs,
   resolveManualCastZoneHit,
 } from "@/lib/simulation/reducers/manualFishing";
 import { getAutoHaulIntervalSeconds } from "@/lib/simulation/reducers/helpers";
+import { getMaintenanceCatchMultiplier } from "@/lib/simulation/reducers/maintenance";
+import {
+  getLicenseRenewalCarryover,
+  isLicenseRenewalReady,
+} from "@/lib/simulation/reducers/prestige";
+import { syncProcessingState } from "@/lib/simulation/reducers/processing";
 import { getSkiffTripFuelCost } from "@/lib/simulation/reducers/skiffTrips";
 import { phaseUnlockRules } from "@/lib/simulation/reducers/unlocks";
 
@@ -191,6 +206,8 @@ export function selectEarlyHudState(run: RunState): EarlyHudState {
 }
 
 export function selectStatusRailItems(run: RunState) {
+  const operationalBottleneck = selectOperationalBottleneck(run);
+
   return [
     {
       label: "Phase",
@@ -203,9 +220,15 @@ export function selectStatusRailItems(run: RunState) {
       detail: "Starter run",
     },
     {
-      label: "Elapsed",
-      value: formatElapsedSeconds(run.elapsedSeconds),
-      detail: "Deterministic tick",
+      label: run.unlocks.phasesSeen.includes("fleetOps")
+        ? "Ops bottleneck"
+        : "Elapsed",
+      value: run.unlocks.phasesSeen.includes("fleetOps")
+        ? operationalBottleneck.value
+        : formatElapsedSeconds(run.elapsedSeconds),
+      detail: run.unlocks.phasesSeen.includes("fleetOps")
+        ? operationalBottleneck.detail
+        : "Deterministic tick",
     },
     {
       label: "Stock",
@@ -349,6 +372,118 @@ export type SkiffPanelState = {
   holdProgress?: number;
 };
 
+export type FleetBoatCardState = {
+  id: string;
+  label: string;
+  routeValue: string;
+  statusText: string;
+  crewText: string;
+  fuelValue: string;
+  fuelDetail: string;
+  holdValue: string;
+  holdDetail: string;
+  maintenanceValue: string;
+  maintenanceDetail: string;
+  kelpDisabled: boolean;
+  offshoreDisabled: boolean;
+};
+
+export type FleetPanelState = {
+  title: string;
+  intro: string;
+  deckhandStatus: string;
+  boats: FleetBoatCardState[];
+};
+
+export type MaintenanceBoatState = {
+  id: string;
+  label: string;
+  maintenanceValue: string;
+  maintenanceDetail: string;
+  wageValue: string;
+  statusText: string;
+  repairDisabled: boolean;
+};
+
+export type MaintenancePanelState = {
+  title: string;
+  intro: string;
+  items: MaintenanceBoatState[];
+};
+
+export type AlertBannerState = {
+  tone: "warning" | "error";
+  title: string;
+  body: string;
+};
+
+export type ProcessingQueueState = {
+  id: string;
+  label: string;
+  statusText: string;
+  progressText: string;
+  active: boolean;
+  product: "frozenCrate" | "cannedCase";
+};
+
+export type ProcessingPanelState = {
+  title: string;
+  intro: string;
+  dockBacklogValue: string;
+  dockBacklogDetail: string;
+  coldStorageValue: string;
+  coldStorageDetail: string;
+  queues: ProcessingQueueState[];
+};
+
+export type ContractCardState = {
+  id: string;
+  label: string;
+  statusText: string;
+  timerText: string;
+  rewardText: string;
+  progressText: string;
+  productText: string;
+  canAccept: boolean;
+  canDeliver: boolean;
+  canClaim: boolean;
+};
+
+export type ContractBoardState = {
+  title: string;
+  intro: string;
+  cards: ContractCardState[];
+};
+
+export type RegionSummaryState = {
+  id: string;
+  label: string;
+  stockText: string;
+  scarcityText: string;
+  travelText: string;
+  consequenceText: string;
+};
+
+export type RegionsPanelState = {
+  title: string;
+  intro: string;
+  trustValue: string;
+  oceanHealthValue: string;
+  items: RegionSummaryState[];
+};
+
+export type LicenseRenewalState = {
+  title: string;
+  body: string;
+  summaryRows: {
+    label: string;
+    value: string;
+  }[];
+  carryoverText: string;
+  confirmLabel: string;
+  cancelLabel: string;
+};
+
 export function selectSkiffPanelState(run: RunState): SkiffPanelState {
   const kelpBed = applyRegionStockPressure(run.regions.kelpBed);
   const fuelCost = getSkiffTripFuelCost("kelpBed");
@@ -461,6 +596,294 @@ function getGearLabel(kind: RunState["gear"][string]["kind"]) {
   return kind === "longline" ? "Longline" : "Crab Pot";
 }
 
+function selectOperationalBottleneck(run: RunState) {
+  const boats = Object.values(run.boats);
+
+  if (
+    boats.some(
+      (boat) =>
+        boat.breakdownUntilTimestamp !== undefined &&
+        boat.breakdownUntilTimestamp > run.elapsedSeconds,
+    )
+  ) {
+    return {
+      value: "Repairs",
+      detail: "A route is down until the hull is serviced.",
+    };
+  }
+
+  if (boats.some((boat) => boat.automated && boat.maintenancePercent <= 35)) {
+    return {
+      value: "Maintenance",
+      detail: "Hull wear is cutting route efficiency.",
+    };
+  }
+
+  if (boats.some((boat) => boat.automated && boat.fuelCurrent <= boat.fuelCap * 0.2)) {
+    return {
+      value: "Fuel",
+      detail: "Crews are close to running dry.",
+    };
+  }
+
+  if (boats.some((boat) => boat.automated && boat.holdCurrent >= boat.holdCap * 0.9)) {
+    return {
+      value: "Unload",
+      detail: "Full holds are backing pressure onto the dock.",
+    };
+  }
+
+  return {
+    value: "Routing",
+    detail: "Crewed routes are holding steady.",
+  };
+}
+
+export function selectAlertBannerState(run: RunState): AlertBannerState | null {
+  const recentBreakdown = [...run.notifications]
+    .reverse()
+    .find((notification) => notification.kind === "breakdown");
+
+  if (recentBreakdown) {
+    return {
+      tone: "error",
+      title: "Boat sidelined",
+      body: recentBreakdown.message,
+    };
+  }
+
+  const maintenanceRisk = Object.values(run.boats).find(
+    (boat) => boat.automated && boat.maintenancePercent <= 35,
+  );
+
+  if (maintenanceRisk) {
+    return {
+      tone: "warning",
+      title: "Maintenance slipping",
+      body: `${getBoatDefinition(maintenanceRisk.model).label} is losing rate under worn gear.`,
+    };
+  }
+
+  return null;
+}
+
+export function selectFleetPanelState(run: RunState): FleetPanelState {
+  const syncedRun = syncFleetState(run);
+  const hasDeckhand = syncedRun.unlocks.upgrades.includes("deckhandHire");
+  const boats = Object.values(syncedRun.boats)
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .map((boat) => {
+      const routeLabel =
+        boat.assignedRegionId === null
+          ? "Standing by"
+          : getRegionDefinition(boat.assignedRegionId).label;
+      const routeState =
+        boat.breakdownUntilTimestamp && boat.breakdownUntilTimestamp > syncedRun.elapsedSeconds
+          ? "Sidelined for repairs."
+          : boat.automated && boat.crewAssigned && boat.assignedRegionId
+            ? `Running ${getRegionDefinition(boat.assignedRegionId).label}.`
+            : hasDeckhand
+              ? "Crew is available for route dispatch."
+              : "Hire a deckhand to automate routes.";
+
+      return {
+        id: boat.id,
+        label: getBoatDefinition(boat.model).label,
+        routeValue: routeLabel,
+        statusText: routeState,
+        crewText:
+          boat.crewAssigned && boat.automated
+            ? "Crewed route"
+            : hasDeckhand
+              ? "Deckhand idle"
+              : "No crew assigned",
+        fuelValue: `${boat.fuelCurrent.toFixed(0)} / ${boat.fuelCap.toFixed(0)}`,
+        fuelDetail: `${Math.max(0, Math.floor(boat.fuelCurrent))} reserve left before the next dockside stop.`,
+        holdValue: `${boat.holdCurrent.toFixed(0)} / ${boat.holdCap.toFixed(0)}`,
+        holdDetail:
+          boat.holdCurrent > 0
+            ? "Hold pressure is building on this route."
+            : "Hold is clear and ready for the next haul.",
+        maintenanceValue: `${Math.round(boat.maintenancePercent)}%`,
+        maintenanceDetail: `Yield running at ${Math.round(getMaintenanceCatchMultiplier(boat.maintenancePercent) * 100)}% of clean-hull pace.`,
+        kelpDisabled: !hasDeckhand || !syncedRun.regions.kelpBed.unlocked,
+        offshoreDisabled: !hasDeckhand || !syncedRun.regions.offshoreShelf.unlocked,
+      };
+    });
+
+  return {
+    title: "Fleet routing",
+    intro: "Routes, crews, and holds now matter more than the cast button.",
+    deckhandStatus: hasDeckhand
+      ? "Deckhands are available for automated routes."
+      : "Deckhand Hire unlocks passive routing beyond the dock.",
+    boats,
+  };
+}
+
+export function selectMaintenancePanelState(run: RunState): MaintenancePanelState {
+  const syncedRun = syncFleetState(run);
+  const items = Object.values(syncedRun.boats)
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .map((boat) => ({
+      id: boat.id,
+      label: getBoatDefinition(boat.model).label,
+      maintenanceValue: `${Math.round(boat.maintenancePercent)}%`,
+      maintenanceDetail:
+        boat.maintenancePercent <= 35
+          ? "Penalties are active until the hull is repaired."
+          : "Hull wear is under control for now.",
+      wageValue: `$${boat.wagePerMinute.toFixed(0)}/min`,
+      statusText:
+        boat.breakdownUntilTimestamp && boat.breakdownUntilTimestamp > syncedRun.elapsedSeconds
+          ? "Broken down"
+          : boat.automated && boat.crewAssigned
+            ? "Crew on the clock"
+            : "Docked",
+      repairDisabled: boat.maintenancePercent >= 99,
+    }));
+
+  return {
+    title: "Maintenance watch",
+    intro: "Crew wages and hull wear are live operating costs now.",
+    items,
+  };
+}
+
+export function selectProcessingPanelState(run: RunState): ProcessingPanelState {
+  const syncedRun = syncProcessingState(syncFacilitiesState(run));
+
+  return {
+    title: "Processing shed",
+    intro: "Unload lanes and cold storage turn returning fish into throughput.",
+    dockBacklogValue: `${syncedRun.facilities.dockStorageRawFish.toFixed(0)} / ${syncedRun.facilities.dockStorageCap.toFixed(0)}`,
+    dockBacklogDetail:
+      syncedRun.facilities.dockStorageRawFish >= syncedRun.facilities.dockStorageCap
+        ? "The dock is jammed. Boats will keep waiting on unload space."
+        : "Dock crates are moving, but backlog still shapes the pace.",
+    coldStorageValue: `${syncedRun.facilities.coldStorageRawFish.toFixed(0)} / ${syncedRun.facilities.coldStorageCap.toFixed(0)}`,
+    coldStorageDetail:
+      syncedRun.facilities.coldStorageCap > 0
+        ? "Cold storage holds raw fish steady for the active lines."
+        : "Processing Shed unlocks cold storage and queue work.",
+    queues: syncedRun.facilities.processingQueues.map((queue) => ({
+      id: queue.id,
+      label: queue.product === "frozenCrate" ? "Flash Freezer" : "Cannery Line",
+      statusText: queue.active ? "Line running" : "Line paused",
+      progressText: `${Math.floor(queue.progressSeconds)} / ${queue.cycleSeconds}s`,
+      active: queue.active,
+      product: queue.product,
+    })),
+  };
+}
+
+export function selectContractBoardState(run: RunState): ContractBoardState {
+  const syncedRun = syncContractsState(run);
+  const cards = Object.values(syncedRun.contracts)
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .map((contract) => ({
+      id: contract.id,
+      label: getContractDefinition(contract.id as keyof typeof import("@/lib/economy/contracts").contractDefinitions).label,
+      statusText:
+        contract.status === "available"
+          ? "Ready to accept"
+          : contract.status === "active"
+            ? "Clock is running"
+            : contract.status === "completed"
+              ? "Ready to claim"
+              : "Expired",
+      timerText:
+        contract.status === "active"
+          ? `${Math.max(0, Math.ceil(contract.expiresAtSeconds - syncedRun.elapsedSeconds))}s remaining`
+          : contract.status === "expired"
+            ? "Timer expired"
+            : "No active timer",
+      rewardText: `$${contract.rewardCash.toFixed(0)} reward`,
+      progressText: `${contract.deliveredAmount.toFixed(0)} / ${contract.requiredAmount.toFixed(0)} delivered`,
+      productText:
+        contract.product === "frozenCrate" ? "Frozen crates" : "Canned cases",
+      canAccept: contract.status === "available",
+      canDeliver: contract.status === "active",
+      canClaim: contract.status === "completed",
+    }));
+
+  return {
+    title: "Contract board",
+    intro: "Timed commitments turn processed goods into short-term pressure.",
+    cards,
+  };
+}
+
+function getTravelText(regionId: RegionId) {
+  if (regionId === "pierCove") {
+    return "Short haul";
+  }
+
+  if (regionId === "kelpBed") {
+    return "Midwater run";
+  }
+
+  return "Long offshore pull";
+}
+
+export function selectRegionsPanelState(run: RunState): RegionsPanelState {
+  const items = Object.values(run.regions)
+    .filter((region) => region.unlocked)
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .map((region) => ({
+      id: region.id,
+      label: region.label,
+      stockText: `${region.stockCurrent.toFixed(0)} / ${region.stockCap.toFixed(0)} stock`,
+      scarcityText: `${Math.round(region.catchSpeedModifier * 100)}% catch speed, ${Math.round(region.scarcityPriceModifier * 100)}% value`,
+      travelText: getTravelText(region.id),
+      consequenceText: `${Math.round(region.bycatchRate * 100)}% bycatch, ${Math.round(region.habitatDamage * 100)}% habitat damage`,
+    }));
+
+  return {
+    title: "Regional oversight",
+    intro: "Depletion, bycatch, trust, and value now sit in the same view.",
+    trustValue: `${Math.round(run.trust)} trust`,
+    oceanHealthValue: `${Math.round(run.oceanHealth)} ocean health`,
+    items,
+  };
+}
+
+export function selectLicenseRenewalState(
+  run: RunState,
+): LicenseRenewalState | null {
+  if (!isLicenseRenewalReady(run)) {
+    return null;
+  }
+
+  const carryover = getLicenseRenewalCarryover(run);
+
+  return {
+    title: "License Renewal",
+    body: "The first chapter is over. Renewing the license resets the run but preserves light carryover bonuses.",
+    summaryRows: [
+      {
+        label: "Lifetime revenue",
+        value: `$${run.lifetimeRevenue.toFixed(0)}`,
+      },
+      {
+        label: "Fish landed",
+        value: run.lifetimeFishLanded.toFixed(0),
+      },
+      {
+        label: "Trust",
+        value: `${Math.round(run.trust)}`,
+      },
+      {
+        label: "Ocean health",
+        value: `${Math.round(run.oceanHealth)}`,
+      },
+    ],
+    carryoverText: `Next run gains +$${carryover.startingCashBonusGain} starting cash and +${carryover.manualCatchBonusGain} fish on every manual catch.`,
+    confirmLabel: "Renew license",
+    cancelLabel: "Keep operating",
+  };
+}
+
 export function selectActivePhaseUnlockModalState(
   run: RunState,
 ): PhaseUnlockModalState | null {
@@ -514,6 +937,8 @@ export function selectProgressSummaryState(run: RunState): ProgressSummaryState 
         ? run.unlocks.upgrades.includes("rustySkiff")
           ? "Fuel and hold space now pace your Kelp Bed trips."
           : "Buy Harbor Map and Rusty Skiff to start leaving the dock."
+        : run.phase === "fleetOps"
+          ? `${selectOperationalBottleneck(run).detail} Your attention belongs on routes and hull health now.`
         : blockedGearCount > 0 || run.facilities.dockStorageRawFish >= run.facilities.dockStorageCap
           ? "Dock storage is the bottleneck. Haul gear and clear space before value slips."
           : "Passive gear, haul timing, and storage quality now pace the dock.";

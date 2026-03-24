@@ -179,6 +179,7 @@ export const saveFileSchema = z.object({
 export type PhaseId = z.infer<typeof phaseIdSchema>;
 export type RegionId = z.infer<typeof regionIdSchema>;
 export type SettingsState = z.infer<typeof settingsStateSchema>;
+export type MetaProgressState = z.infer<typeof metaProgressStateSchema>;
 export type RunState = z.infer<typeof runStateSchema>;
 export type SaveFile = z.infer<typeof saveFileSchema>;
 
@@ -191,7 +192,18 @@ export function createDefaultSettings(): SettingsState {
   };
 }
 
-export function createStarterRun(): RunState {
+export function createDefaultMetaProgress(): MetaProgressState {
+  return {
+    renewals: 0,
+    startingCashBonus: 0,
+    manualCatchBonus: 0,
+    unlockFlags: [],
+  };
+}
+
+export function createStarterRun(
+  meta: MetaProgressState = createDefaultMetaProgress(),
+): RunState {
   const quietPier = getPhaseDefinition("quietPier");
   const regions = applyRegionsStockPressure(
     Object.fromEntries(
@@ -209,14 +221,14 @@ export function createStarterRun(): RunState {
     phase: "quietPier",
     uiTone: quietPier.uiTone,
     elapsedSeconds: 0,
-    cash: 0,
+    cash: meta.startingCashBonus,
     lifetimeRevenue: 0,
     lifetimeFishLanded: 0,
     manual: {
       cooldownMs: 0,
       perfectZoneWidth: 0.24,
-      catchAmountNormal: 1,
-      catchAmountPerfect: 2,
+      catchAmountNormal: 1 + meta.manualCatchBonus,
+      catchAmountPerfect: 2 + meta.manualCatchBonus,
       sellValueModifier: 1,
     },
     regions,
@@ -259,19 +271,15 @@ export function createFreshSave(
   overrides: Partial<SaveFile> = {},
 ): SaveFile {
   const now = new Date().toISOString();
+  const defaultMeta = createDefaultMetaProgress();
 
   return {
     version: 1,
     createdAt: now,
     lastSavedAt: now,
-    meta: {
-      renewals: 0,
-      startingCashBonus: 0,
-      manualCatchBonus: 0,
-      unlockFlags: [],
-    },
+    meta: defaultMeta,
     settings: createDefaultSettings(),
-    run: createStarterRun(),
+    run: createStarterRun(defaultMeta),
     ...overrides,
   };
 }

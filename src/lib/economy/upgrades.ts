@@ -13,7 +13,15 @@ export type UpgradeId =
   | "rodRack"
   | "crabPot"
   | "longline"
-  | "hireCousin";
+  | "hireCousin"
+  | "dockLease"
+  | "usedWorkSkiff"
+  | "deckhandHire"
+  | "processingShed"
+  | "flashFreezer"
+  | "canneryLine"
+  | "dockForklift"
+  | "coldRoomExpansion";
 
 export type ManualUpgradeEffects = {
   perfectZoneWidthMultiplier: number;
@@ -177,6 +185,70 @@ export const upgradeDefinitions: Record<UpgradeId, UpgradeDefinition> = {
     helper: {
       autoHaulIntervalSeconds: 90,
     },
+  },
+  dockLease: {
+    id: "dockLease",
+    label: "Dock Lease",
+    phase: "fleetOps",
+    cost: 650,
+    description: "Lease a wider section of the dock and chart the Offshore Shelf.",
+    effects: {},
+  },
+  usedWorkSkiff: {
+    id: "usedWorkSkiff",
+    label: "Used Work Skiff",
+    phase: "fleetOps",
+    cost: 900,
+    description: "A second hull that turns one route into fleet operations.",
+    effects: {},
+  },
+  deckhandHire: {
+    id: "deckhandHire",
+    label: "Deckhand Hire",
+    phase: "fleetOps",
+    cost: 500,
+    description: "Put a paid hand on the boats so routes can run without you.",
+    effects: {},
+  },
+  processingShed: {
+    id: "processingShed",
+    label: "Processing Shed",
+    phase: "processingContracts",
+    cost: 950,
+    description: "Bring raw fish off the dock and into the first cold-work line.",
+    effects: {},
+  },
+  flashFreezer: {
+    id: "flashFreezer",
+    label: "Flash Freezer",
+    phase: "processingContracts",
+    cost: 1_100,
+    description: "Freeze raw catch into crate-ready product at a steady cadence.",
+    effects: {},
+  },
+  canneryLine: {
+    id: "canneryLine",
+    label: "Cannery Line",
+    phase: "processingContracts",
+    cost: 1_350,
+    description: "Turn surplus fish into slower but richer canned output.",
+    effects: {},
+  },
+  dockForklift: {
+    id: "dockForklift",
+    label: "Dock Forklift",
+    phase: "processingContracts",
+    cost: 800,
+    description: "Move more fish off returning boats before the dock clogs.",
+    effects: {},
+  },
+  coldRoomExpansion: {
+    id: "coldRoomExpansion",
+    label: "Cold Room Expansion",
+    phase: "processingContracts",
+    cost: 900,
+    description: "Keep more raw fish stable once the processing shed is online.",
+    effects: {},
   },
 };
 

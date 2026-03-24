@@ -6,12 +6,18 @@ type StatusRailItem = {
 
 type StatusRailProps = {
   items: StatusRailItem[];
+  tone?: "cozy" | "operational" | "industrial";
 };
 
-export function StatusRail({ items }: StatusRailProps) {
+export function StatusRail({
+  items,
+  tone = "cozy",
+}: StatusRailProps) {
   return (
     <section
-      className="rounded-[28px] bg-industrial px-5 py-4 text-surface-raised shadow-soft"
+      className={`rounded-[28px] px-5 py-4 text-surface-raised shadow-soft ${
+        tone === "cozy" ? "bg-industrial" : "bg-industrial/95"
+      }`}
       data-testid="status-rail"
     >
       <div className="grid gap-3 md:grid-cols-4">

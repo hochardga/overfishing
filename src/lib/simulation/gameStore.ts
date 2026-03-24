@@ -2,7 +2,33 @@ import { createStore } from "zustand/vanilla";
 import { useStore } from "zustand";
 
 import {
+  assignBoatRoute as assignBoatRouteReducer,
+  type AssignBoatRouteResult,
+  syncFleetState,
+} from "@/lib/simulation/reducers/fleet";
+import { syncFacilitiesState } from "@/lib/simulation/reducers/facilities";
+import {
+  repairBoat as repairBoatReducer,
+  type RepairBoatResult,
+} from "@/lib/simulation/reducers/maintenance";
+import {
+  acceptContract as acceptContractReducer,
+  claimContractReward as claimContractRewardReducer,
+  deliverContract as deliverContractReducer,
+  type ClaimContractRewardResult,
+  syncContractsState,
+} from "@/lib/simulation/reducers/contracts";
+import {
+  isLicenseRenewalReady,
+} from "@/lib/simulation/reducers/prestige";
+import {
+  setProcessingQueue as setProcessingQueueReducer,
+  type SetProcessingQueueResult,
+  syncProcessingState,
+} from "@/lib/simulation/reducers/processing";
+import {
   loadOrCreateSave,
+  renewLicenseSave,
   updateSave,
 } from "@/lib/storage/saveAdapter";
 import {
@@ -50,6 +76,23 @@ export type GameStoreState = {
   purchaseUpgrade: (upgradeId: string) => UpgradePurchaseResult;
   startSkiffTrip: (boatId: string, regionId: RegionId) => StartSkiffTripResult;
   refuelSkiff: (boatId: string) => RefuelSkiffResult;
+  assignBoatRoute: (
+    boatId: string,
+    regionId: RegionId,
+    automated: boolean,
+    crewAssigned: boolean,
+  ) => AssignBoatRouteResult;
+  repairBoat: (boatId: string) => RepairBoatResult;
+  setProcessingQueue: (
+    queueId: string,
+    active: boolean,
+    product: "frozenCrate" | "cannedCase",
+  ) => SetProcessingQueueResult;
+  acceptContract: (contractId: string) => { run: RunState };
+  deliverContract: (contractId: string) => { run: RunState };
+  claimContractReward: (contractId: string) => ClaimContractRewardResult;
+  renewLicense: () => RunState;
+  isLicenseRenewalReady: () => boolean;
   collectPassiveGear: (gearId: string) => CollectPassiveGearResult;
   dismissPhaseUnlockModal: (phaseId: PhaseId) => RunState;
 };
@@ -69,8 +112,16 @@ const createState = (initialRun: RunState = createStarterRun()) =>
     };
 
     const normalizeRun = (run: RunState) =>
-      syncPassiveGearState(
-        syncStorageState(syncSkiffState(applyUnlockChecks(run))),
+      syncFleetState(
+        syncProcessingState(
+          syncContractsState(
+            syncFacilitiesState(
+              syncPassiveGearState(
+                syncStorageState(syncSkiffState(applyUnlockChecks(run))),
+              ),
+            ),
+          ),
+        ),
       );
 
     const syncRunToTime = (nowMs: number) => {
@@ -137,7 +188,8 @@ const createState = (initialRun: RunState = createStarterRun()) =>
         }
 
         if (!hasHydrated) {
-          const fallbackRun = normalizeRun(loadOrCreateSave().run ?? createStarterRun());
+          const save = loadOrCreateSave();
+          const fallbackRun = normalizeRun(save.run ?? createStarterRun(save.meta));
           hasHydrated = true;
           simulationAnchorMs = null;
           set({ run: fallbackRun });
@@ -152,7 +204,8 @@ const createState = (initialRun: RunState = createStarterRun()) =>
         persistRun(normalizedRun);
       },
       resetRun: () => {
-        const nextRun = createStarterRun();
+        const save = loadOrCreateSave();
+        const nextRun = createStarterRun(save.meta);
         simulationAnchorMs = null;
         set({ run: nextRun });
         persistRun(nextRun);
@@ -236,6 +289,127 @@ const createState = (initialRun: RunState = createStarterRun()) =>
           run: normalizedRun,
         };
       },
+      assignBoatRoute: (boatId, regionId, automated, crewAssigned) => {
+        const syncedRun = syncRunToTime(Date.now());
+        const result = assignBoatRouteReducer(syncedRun, {
+          boatId,
+          regionId,
+          automated,
+          crewAssigned,
+        });
+        const normalizedRun = normalizeRun(result.run);
+
+        set({
+          run: normalizedRun,
+        });
+        persistRun(normalizedRun);
+
+        return {
+          ...result,
+          run: normalizedRun,
+        };
+      },
+      repairBoat: (boatId) => {
+        const syncedRun = syncRunToTime(Date.now());
+        const result = repairBoatReducer(syncedRun, {
+          boatId,
+        });
+        const normalizedRun = normalizeRun(result.run);
+
+        set({
+          run: normalizedRun,
+        });
+        persistRun(normalizedRun);
+
+        return {
+          ...result,
+          run: normalizedRun,
+        };
+      },
+      setProcessingQueue: (queueId, active, product) => {
+        const syncedRun = syncRunToTime(Date.now());
+        const result = setProcessingQueueReducer(syncedRun, {
+          queueId,
+          active,
+          product,
+        });
+        const normalizedRun = normalizeRun(result.run);
+
+        set({
+          run: normalizedRun,
+        });
+        persistRun(normalizedRun);
+
+        return {
+          ...result,
+          run: normalizedRun,
+        };
+      },
+      acceptContract: (contractId) => {
+        const syncedRun = syncRunToTime(Date.now());
+        const result = acceptContractReducer(syncedRun, {
+          contractId,
+        });
+        const normalizedRun = normalizeRun(result.run);
+
+        set({
+          run: normalizedRun,
+        });
+        persistRun(normalizedRun);
+
+        return {
+          ...result,
+          run: normalizedRun,
+        };
+      },
+      deliverContract: (contractId) => {
+        const syncedRun = syncRunToTime(Date.now());
+        const result = deliverContractReducer(syncedRun, {
+          contractId,
+        });
+        const normalizedRun = normalizeRun(result.run);
+
+        set({
+          run: normalizedRun,
+        });
+        persistRun(normalizedRun);
+
+        return {
+          ...result,
+          run: normalizedRun,
+        };
+      },
+      claimContractReward: (contractId) => {
+        const syncedRun = syncRunToTime(Date.now());
+        const result = claimContractRewardReducer(syncedRun, {
+          contractId,
+        });
+        const normalizedRun = normalizeRun(result.run);
+
+        set({
+          run: normalizedRun,
+        });
+        persistRun(normalizedRun);
+
+        return {
+          ...result,
+          run: normalizedRun,
+        };
+      },
+      renewLicense: () => {
+        const renewedSave = renewLicenseSave();
+        const nextRun = normalizeRun(
+          renewedSave.run ?? createStarterRun(renewedSave.meta),
+        );
+        simulationAnchorMs = null;
+        set({
+          run: nextRun,
+        });
+        persistRun(nextRun);
+
+        return nextRun;
+      },
+      isLicenseRenewalReady: () => isLicenseRenewalReady(get().run),
       collectPassiveGear: (gearId) => {
         const syncedRun = syncRunToTime(Date.now());
         const result = collectPassiveGearReducer(syncedRun, {

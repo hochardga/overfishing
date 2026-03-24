@@ -262,7 +262,11 @@ export function advanceSkiffTrips(
   let nextRun = syncSkiffState(run);
 
   for (const [boatId, boat] of Object.entries(nextRun.boats)) {
-    if (boat.status !== "fishing" || boat.assignedRegionId === null) {
+    if (
+      boat.automated ||
+      boat.status !== "fishing" ||
+      boat.assignedRegionId === null
+    ) {
       continue;
     }
 

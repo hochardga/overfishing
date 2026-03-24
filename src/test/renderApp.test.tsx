@@ -11,6 +11,13 @@ import { vi } from "vitest";
 import App from "@/App";
 import { createStarterRun, type RunState } from "@/lib/storage/saveSchema";
 import { createGameStore, gameStore } from "@/lib/simulation/gameStore";
+import {
+  assignBoatRoute,
+  syncFleetState,
+} from "@/lib/simulation/reducers/fleet";
+import { syncContractsState } from "@/lib/simulation/reducers/contracts";
+import { syncFacilitiesState } from "@/lib/simulation/reducers/facilities";
+import { syncProcessingState } from "@/lib/simulation/reducers/processing";
 import { purchaseUpgrade } from "@/lib/simulation/reducers/upgrades";
 
 function renderAtPath(pathname: string) {
@@ -116,11 +123,148 @@ function createUnlockModalRun(): RunState {
   return run;
 }
 
+function createFleetOpsRun(): RunState {
+  const starterRun = createStarterRun();
+
+  let run: RunState = {
+    ...starterRun,
+    phase: "fleetOps",
+    uiTone: "operational",
+    cash: 8_000,
+    lifetimeFishLanded: 320,
+    lifetimeRevenue: 1_900,
+    unlocks: {
+      ...starterRun.unlocks,
+      tabs: ["harbor", "fleet", "settings"],
+      upgrades: ["harborMap", "rustySkiff", "hireCousin"],
+      phasesSeen: ["quietPier", "skiffOperator", "docksideGear", "fleetOps"],
+      pendingPhaseModalIds: [],
+      dismissedPhaseModalIds: [],
+    },
+  };
+
+  run = purchaseUpgrade(run, "dockLease").run;
+  run = purchaseUpgrade(run, "usedWorkSkiff").run;
+  run = purchaseUpgrade(run, "deckhandHire").run;
+  run = syncFleetState(run);
+  run = assignBoatRoute(run, {
+    boatId: "workSkiff",
+    regionId: "offshoreShelf",
+    automated: true,
+    crewAssigned: true,
+  }).run;
+
+  return run;
+}
+
+function createProcessingContractsRun(): RunState {
+  const starterRun = createStarterRun();
+
+  let run: RunState = {
+    ...starterRun,
+    phase: "processingContracts",
+    uiTone: "industrial",
+    cash: 14_000,
+    lifetimeFishLanded: 620,
+    lifetimeRevenue: 4_200,
+    facilities: {
+      ...starterRun.facilities,
+      dockStorageRawFish: 8,
+      dockStorageCap: 20,
+    },
+    resources: {
+      ...starterRun.resources,
+      frozenCrates: 10,
+      cannedCases: 6,
+    },
+    unlocks: {
+      ...starterRun.unlocks,
+      tabs: ["harbor", "fleet", "processing", "settings"],
+      upgrades: [
+        "harborMap",
+        "rustySkiff",
+        "hireCousin",
+        "dockLease",
+        "usedWorkSkiff",
+        "deckhandHire",
+      ],
+      phasesSeen: [
+        "quietPier",
+        "skiffOperator",
+        "docksideGear",
+        "fleetOps",
+        "processingContracts",
+      ],
+      pendingPhaseModalIds: [],
+      dismissedPhaseModalIds: [],
+    },
+  };
+
+  run = purchaseUpgrade(run, "processingShed").run;
+  run = purchaseUpgrade(run, "flashFreezer").run;
+  run = purchaseUpgrade(run, "canneryLine").run;
+
+  return syncContractsState(syncProcessingState(syncFacilitiesState(run)));
+}
+
+function createRenewalReadyRun(): RunState {
+  const starterRun = createStarterRun();
+
+  return {
+    ...starterRun,
+    phase: "regionalExtraction",
+    uiTone: "industrial",
+    cash: 6_000,
+    trust: 54,
+    oceanHealth: 61,
+    lifetimeFishLanded: 1_120,
+    lifetimeRevenue: 6_800,
+    unlocks: {
+      ...starterRun.unlocks,
+      tabs: ["harbor", "fleet", "processing", "regions", "settings"],
+      upgrades: [
+        "harborMap",
+        "rustySkiff",
+        "hireCousin",
+        "dockLease",
+        "usedWorkSkiff",
+        "deckhandHire",
+        "processingShed",
+        "flashFreezer",
+        "canneryLine",
+      ],
+      phasesSeen: [
+        "quietPier",
+        "skiffOperator",
+        "docksideGear",
+        "fleetOps",
+        "processingContracts",
+        "regionalExtraction",
+      ],
+      pendingPhaseModalIds: [],
+      dismissedPhaseModalIds: [],
+    },
+    regions: {
+      ...starterRun.regions,
+      kelpBed: {
+        ...starterRun.regions.kelpBed,
+        unlocked: true,
+      },
+      offshoreShelf: {
+        ...starterRun.regions.offshoreShelf,
+        unlocked: true,
+        stockCurrent: 24,
+        habitatDamage: 0.22,
+      },
+    },
+  };
+}
+
 describe("App bootstrap", () => {
   beforeEach(() => {
     gameStore.getState().stopSimulationLoop();
-    gameStore.getState().resetRun();
     localStorage.clear();
+    gameStore.getState().resetRun();
   });
 
   afterEach(() => {
@@ -203,14 +347,29 @@ describe("App bootstrap", () => {
       const state = gameStore.getState();
       state.replaceRun({
         ...state.run,
-        phase: "docksideGear",
-        lifetimeFishLanded: 200,
-        lifetimeRevenue: 900,
+        phase: "regionalExtraction",
+        uiTone: "industrial",
+        lifetimeFishLanded: 1_000,
+        lifetimeRevenue: 6_000,
         unlocks: {
           ...state.run.unlocks,
-          phasesSeen: ["quietPier", "skiffOperator", "docksideGear"],
-          upgrades: ["rustySkiff"],
-          tabs: ["harbor", "fleet", "settings"],
+          phasesSeen: [
+            "quietPier",
+            "skiffOperator",
+            "docksideGear",
+            "fleetOps",
+            "processingContracts",
+            "regionalExtraction",
+          ],
+          upgrades: [
+            "rustySkiff",
+            "dockLease",
+            "usedWorkSkiff",
+            "deckhandHire",
+            "processingShed",
+            "flashFreezer",
+          ],
+          tabs: ["harbor", "fleet", "processing", "regions", "settings"],
         },
       });
     });
@@ -456,6 +615,60 @@ describe("App bootstrap", () => {
     expect(gameStore.getState().run.unlocks.dismissedPhaseModalIds).toContain(
       "skiffOperator",
     );
+  });
+
+  it("shifts the play shell into fleet operations once Fleet Ops is unlocked", () => {
+    act(() => {
+      gameStore.getState().replaceRun(createFleetOpsRun());
+    });
+
+    renderAtPath("/play");
+
+    expect(
+      screen.getByRole("heading", { name: /fleet operations/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("fleet-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("maintenance-panel")).toBeInTheDocument();
+    expect(
+      screen.getByText(/routes, crews, and maintenance now set the pace/i),
+    ).toBeInTheDocument();
+  });
+
+  it("renders processing controls and contract actions once processing unlocks", async () => {
+    const user = userEvent.setup();
+
+    act(() => {
+      gameStore.getState().replaceRun(createProcessingContractsRun());
+    });
+
+    renderAtPath("/play");
+
+    expect(screen.getByTestId("processing-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("contract-board")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /accept restaurant route/i }),
+    );
+
+    expect(gameStore.getState().run.contracts.restaurant.status).toBe("active");
+  });
+
+  it("shows the regions panel and completes a license renewal reset", async () => {
+    const user = userEvent.setup();
+
+    act(() => {
+      gameStore.getState().replaceRun(createRenewalReadyRun());
+    });
+
+    renderAtPath("/play");
+
+    expect(screen.getByTestId("regions-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("license-renewal-modal")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /renew license/i }));
+
+    expect(gameStore.getState().run.phase).toBe("quietPier");
+    expect(gameStore.getState().run.cash).toBeGreaterThan(0);
   });
 
   it("casts through timing windows on the live play route", () => {

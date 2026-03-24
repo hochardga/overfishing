@@ -1,9 +1,18 @@
 import type { RunState } from "@/lib/storage/saveSchema";
 import { applyRegionsStockPressure } from "@/lib/economy/regions";
 import {
+  advanceFleetAutomation,
+  syncFleetState,
+} from "@/lib/simulation/reducers/fleet";
+import { advanceFacilities, syncFacilitiesState } from "@/lib/simulation/reducers/facilities";
+import { advanceMaintenance } from "@/lib/simulation/reducers/maintenance";
+import {
   advancePassiveGear,
   syncPassiveGearState,
 } from "@/lib/simulation/reducers/passiveGear";
+import { advanceProcessing, syncProcessingState } from "@/lib/simulation/reducers/processing";
+import { advanceContracts, syncContractsState } from "@/lib/simulation/reducers/contracts";
+import { advanceRegionsState } from "@/lib/simulation/reducers/regions";
 import {
   advanceSkiffTrips,
   syncSkiffState,
@@ -18,12 +27,28 @@ export function advanceRunBySeconds(
   run: RunState,
   elapsedSeconds: number,
 ): RunState {
-  const syncedRun = syncPassiveGearState(syncStorageState(syncSkiffState(run)));
+  const syncedRun = syncFleetState(
+    syncProcessingState(
+      syncContractsState(
+        syncFacilitiesState(
+          syncPassiveGearState(syncStorageState(syncSkiffState(run))),
+        ),
+      ),
+    ),
+  );
   const safeElapsedSeconds = Math.max(0, elapsedSeconds);
 
   if (safeElapsedSeconds === 0) {
-    return syncPassiveGearState(
-      syncStorageState(syncSkiffState(applyUnlockChecks(syncedRun))),
+    return syncFleetState(
+      syncProcessingState(
+        syncContractsState(
+          syncFacilitiesState(
+            syncPassiveGearState(
+              syncStorageState(syncSkiffState(applyUnlockChecks(syncedRun))),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -58,19 +83,33 @@ export function advanceRunBySeconds(
     },
     safeElapsedSeconds,
   );
-  const passiveGearRun = advancePassiveGear(advancedRun, safeElapsedSeconds);
+  const fleetRun = advanceFleetAutomation(advancedRun, safeElapsedSeconds);
+  const passiveGearRun = advancePassiveGear(fleetRun, safeElapsedSeconds);
   const storageRun = applyDockStorageDecay(passiveGearRun, safeElapsedSeconds);
+  const facilitiesRun = advanceFacilities(storageRun, safeElapsedSeconds);
+  const processingRun = advanceProcessing(facilitiesRun, safeElapsedSeconds);
+  const maintainedRun = advanceMaintenance(processingRun, safeElapsedSeconds);
+  const regionalRun = advanceRegionsState(maintainedRun, safeElapsedSeconds);
+  const contractedRun = advanceContracts(regionalRun);
 
-  return syncPassiveGearState(
-    syncStorageState(
-      syncSkiffState(
-        applyUnlockChecks({
-          ...storageRun,
-          manual: {
-            ...storageRun.manual,
-            cooldownMs: nextCooldownMs < 1 ? 0 : nextCooldownMs,
-          },
-        }),
+  return syncFleetState(
+    syncProcessingState(
+      syncContractsState(
+        syncFacilitiesState(
+          syncPassiveGearState(
+            syncStorageState(
+              syncSkiffState(
+                applyUnlockChecks({
+                  ...contractedRun,
+                  manual: {
+                    ...contractedRun.manual,
+                    cooldownMs: nextCooldownMs < 1 ? 0 : nextCooldownMs,
+                  },
+                }),
+              ),
+            ),
+          ),
+        ),
       ),
     ),
   );
