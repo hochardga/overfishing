@@ -8,6 +8,7 @@ import {
   applyUnlockChecks,
   dismissPhaseUnlockModal,
 } from "@/lib/simulation/reducers/unlocks";
+import { selectUpgradeShopState } from "@/lib/simulation/selectors";
 import { purchaseUpgrade } from "@/lib/simulation/reducers/upgrades";
 import { advanceRunBySeconds } from "@/lib/simulation/tickEngine";
 
@@ -215,5 +216,29 @@ describe("upgrade purchases and unlock checks", () => {
       "skiffOperator",
     );
     expect(afterRecheck.unlocks.pendingPhaseModalIds).toEqual([]);
+  });
+
+  it("keeps the next phase marked unready until required upgrades are owned", () => {
+    const starterRun = createStarterRun();
+    const run: RunState = {
+      ...starterRun,
+      phase: "skiffOperator",
+      lifetimeFishLanded: 150,
+      lifetimeRevenue: 750,
+      unlocks: {
+        ...starterRun.unlocks,
+        tabs: ["harbor", "fleet", "settings"],
+        upgrades: ["harborMap"],
+        phasesSeen: ["quietPier", "skiffOperator"],
+      },
+    };
+
+    const shop = selectUpgradeShopState(run);
+
+    expect(shop.phaseReady).toBe(false);
+    expect(shop.phaseRequirementText).toContain("Rusty Skiff");
+    expect(shop.phaseStatusText).toBe(
+      "Buy Rusty Skiff to unlock Dockside Gear.",
+    );
   });
 });

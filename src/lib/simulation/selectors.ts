@@ -86,6 +86,28 @@ function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
 }
 
+function formatUpgradeList(upgradeIds: readonly string[]) {
+  const labels = upgradeIds.map(
+    (upgradeId) =>
+      upgradeDefinitions[upgradeId as keyof typeof upgradeDefinitions]?.label ??
+      upgradeId,
+  );
+
+  if (labels.length === 0) {
+    return "";
+  }
+
+  if (labels.length === 1) {
+    return labels[0];
+  }
+
+  if (labels.length === 2) {
+    return `${labels[0]} and ${labels[1]}`;
+  }
+
+  return `${labels.slice(0, -1).join(", ")}, and ${labels.at(-1)}`;
+}
+
 function selectStockLabel(run: RunState) {
   const unlockedRegions = Object.values(run.regions).filter(
     (region) => region.unlocked,
@@ -276,9 +298,22 @@ export function selectUpgradeShopState(run: RunState): UpgradeShopState {
     run.lifetimeRevenue / nextPhaseRule.requiredLifetimeRevenue,
   );
   const nextPhaseLabel = getPhaseDefinition(nextPhaseRule.phaseId).label;
-  const phaseReady =
+  const thresholdsMet =
     run.lifetimeFishLanded >= nextPhaseRule.requiredLifetimeFishLanded &&
     run.lifetimeRevenue >= nextPhaseRule.requiredLifetimeRevenue;
+  const missingUpgradeIds = nextPhaseRule.requiredUpgradeIds.filter(
+    (upgradeId) => !ownedUpgrades.has(upgradeId),
+  );
+  const requiredUpgradeText =
+    nextPhaseRule.requiredUpgradeIds.length > 0
+      ? ` Also requires ${formatUpgradeList(nextPhaseRule.requiredUpgradeIds)}.`
+      : "";
+  const phaseReady = thresholdsMet && missingUpgradeIds.length === 0;
+  const phaseStatusText = phaseReady
+    ? `${nextPhaseLabel} is ready to unlock.`
+    : thresholdsMet && missingUpgradeIds.length > 0
+      ? `Buy ${formatUpgradeList(missingUpgradeIds)} to unlock ${nextPhaseLabel}.`
+      : "The dock is still warming up.";
 
   return {
     title: `${getPhaseDefinition(run.phase).label} upgrades`,
@@ -286,11 +321,9 @@ export function selectUpgradeShopState(run: RunState): UpgradeShopState {
     phasePanelLabel: "Next phase",
     hasNextPhase: true,
     nextPhaseLabel,
-    phaseRequirementText: `${nextPhaseLabel} unlocks at ${nextPhaseRule.requiredLifetimeFishLanded} lifetime fish landed and $${nextPhaseRule.requiredLifetimeRevenue} lifetime revenue.`,
+    phaseRequirementText: `${nextPhaseLabel} unlocks at ${nextPhaseRule.requiredLifetimeFishLanded} lifetime fish landed and $${nextPhaseRule.requiredLifetimeRevenue} lifetime revenue.${requiredUpgradeText}`,
     phaseProgressText: `${run.lifetimeFishLanded.toFixed(0)} / ${nextPhaseRule.requiredLifetimeFishLanded} fish landed, $${run.lifetimeRevenue.toFixed(0)} / $${nextPhaseRule.requiredLifetimeRevenue} revenue.`,
-    phaseStatusText: phaseReady
-      ? `${nextPhaseLabel} is ready to unlock.`
-      : "The dock is still warming up.",
+    phaseStatusText,
     phaseReady,
     phaseProgress: Math.min(fishProgress, revenueProgress),
     fishProgress,
