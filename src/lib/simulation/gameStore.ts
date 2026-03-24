@@ -4,6 +4,8 @@ import { useStore } from "zustand";
 import {
   assignBoatRoute as assignBoatRouteReducer,
   type AssignBoatRouteResult,
+  refuelBoat as refuelBoatReducer,
+  type RefuelBoatResult,
   syncFleetState,
 } from "@/lib/simulation/reducers/fleet";
 import { syncFacilitiesState } from "@/lib/simulation/reducers/facilities";
@@ -76,6 +78,7 @@ export type GameStoreState = {
   purchaseUpgrade: (upgradeId: string) => UpgradePurchaseResult;
   startSkiffTrip: (boatId: string, regionId: RegionId) => StartSkiffTripResult;
   refuelSkiff: (boatId: string) => RefuelSkiffResult;
+  refuelBoat: (boatId: string) => RefuelBoatResult;
   assignBoatRoute: (
     boatId: string,
     regionId: RegionId,
@@ -275,6 +278,23 @@ const createState = (initialRun: RunState = createStarterRun()) =>
       refuelSkiff: (boatId) => {
         const syncedRun = syncRunToTime(Date.now());
         const result = refuelSkiffReducer(syncedRun, {
+          boatId,
+        });
+        const normalizedRun = normalizeRun(result.run);
+
+        set({
+          run: normalizedRun,
+        });
+        persistRun(normalizedRun);
+
+        return {
+          ...result,
+          run: normalizedRun,
+        };
+      },
+      refuelBoat: (boatId) => {
+        const syncedRun = syncRunToTime(Date.now());
+        const result = refuelBoatReducer(syncedRun, {
           boatId,
         });
         const normalizedRun = normalizeRun(result.run);

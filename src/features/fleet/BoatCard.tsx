@@ -9,6 +9,7 @@ type BoatCardProps = {
 
 export function BoatCard({ item }: BoatCardProps) {
   const assignBoatRoute = useGameStore((state) => state.assignBoatRoute);
+  const refuelBoat = useGameStore((state) => state.refuelBoat);
 
   return (
     <Card
@@ -73,6 +74,13 @@ export function BoatCard({ item }: BoatCardProps) {
           variant="ghost"
         >
           Dispatch Offshore Shelf
+        </Button>
+        <Button
+          disabled={item.refuelDisabled}
+          onClick={() => refuelBoat(item.id)}
+          variant="ghost"
+        >
+          Top up fuel
         </Button>
       </div>
     </Card>

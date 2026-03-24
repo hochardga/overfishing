@@ -30,6 +30,22 @@ export type AssignBoatRouteResult = {
   feedback: string;
 };
 
+export type RefuelBoatArgs = {
+  boatId: string;
+};
+
+export type RefuelBoatOutcome =
+  | "refueled"
+  | "missingBoat"
+  | "busy"
+  | "alreadyFull";
+
+export type RefuelBoatResult = {
+  outcome: RefuelBoatOutcome;
+  run: RunState;
+  feedback: string;
+};
+
 function hasUpgrade(run: RunState, upgradeId: string) {
   return run.unlocks.upgrades.includes(upgradeId);
 }
@@ -172,6 +188,53 @@ export function assignBoatRoute(
       },
     },
     feedback: `${getRegionDefinition(args.regionId).label} route assigned.`,
+  };
+}
+
+export function refuelBoat(
+  run: RunState,
+  args: RefuelBoatArgs,
+): RefuelBoatResult {
+  const syncedRun = syncFleetState(run);
+  const boat = syncedRun.boats[args.boatId];
+
+  if (!boat) {
+    return {
+      outcome: "missingBoat",
+      run: syncedRun,
+      feedback: "That hull is not in service yet.",
+    };
+  }
+
+  if (boat.status === "fishing") {
+    return {
+      outcome: "busy",
+      run: syncedRun,
+      feedback: "Wait for the boat to dock before refueling.",
+    };
+  }
+
+  if (boat.fuelCurrent >= boat.fuelCap) {
+    return {
+      outcome: "alreadyFull",
+      run: syncedRun,
+      feedback: `${getBoatDefinition(boat.model).label} is already topped up.`,
+    };
+  }
+
+  return {
+    outcome: "refueled",
+    run: {
+      ...syncedRun,
+      boats: {
+        ...syncedRun.boats,
+        [args.boatId]: {
+          ...boat,
+          fuelCurrent: boat.fuelCap,
+        },
+      },
+    },
+    feedback: `${getBoatDefinition(boat.model).label} is topped back up.`,
   };
 }
 

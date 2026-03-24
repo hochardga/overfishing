@@ -81,7 +81,7 @@ export default function PlayPage() {
               <h2 className="font-heading text-2xl">Why it matters</h2>
               <p className="text-sm text-text-muted">
                 {isFleetOps
-                  ? "Manual skill taught the system. Now throughput, upkeep, and route pressure reveal what the operation rewards."
+                  ? "Manual skill still plugs shortfalls, but throughput, upkeep, and route pressure now decide how the harbor scales."
                   : "The game should teach money, stock, and timing without hiding the reward. The next systems build on that same loop."}
               </p>
             </Card>
@@ -100,7 +100,7 @@ export default function PlayPage() {
           <>
             <ProgressSummary summary={progressSummary} />
             {!isFleetOps ? <EarlyHud run={run} /> : null}
-            {!isFleetOps ? <CastButton /> : null}
+            <CastButton />
             {isFleetOps ? <FleetPanel run={run} /> : null}
             {isFleetOps ? <MaintenancePanel run={run} /> : null}
             {!isFleetOps && run.unlocks.phasesSeen.includes("skiffOperator") ? (
@@ -124,7 +124,7 @@ export default function PlayPage() {
               </h2>
               <p className="text-sm text-surface-raised/75">
                 {isFleetOps
-                  ? "Crewed boats now make the money. Your job is to keep routes supplied, repaired, and worth running."
+                  ? "Crewed routes carry most of the load now, but dockside casts still bridge revenue gaps while you keep fuel, repairs, and route choices under control."
                   : "Manual casts resolve directly into cash for now, so the reward lands immediately and the dock stays easy to read."}
               </p>
             </Card>

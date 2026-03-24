@@ -386,6 +386,7 @@ export type FleetBoatCardState = {
   maintenanceDetail: string;
   kelpDisabled: boolean;
   offshoreDisabled: boolean;
+  refuelDisabled: boolean;
 };
 
 export type FleetPanelState = {
@@ -708,6 +709,8 @@ export function selectFleetPanelState(run: RunState): FleetPanelState {
         maintenanceDetail: `Yield running at ${Math.round(getMaintenanceCatchMultiplier(boat.maintenancePercent) * 100)}% of clean-hull pace.`,
         kelpDisabled: !hasDeckhand || !syncedRun.regions.kelpBed.unlocked,
         offshoreDisabled: !hasDeckhand || !syncedRun.regions.offshoreShelf.unlocked,
+        refuelDisabled:
+          boat.status === "fishing" || boat.fuelCurrent >= boat.fuelCap,
       };
     });
 

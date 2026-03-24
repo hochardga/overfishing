@@ -634,6 +634,56 @@ describe("App bootstrap", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps a dockside revenue control reachable after Fleet Ops unlocks", () => {
+    act(() => {
+      gameStore.getState().replaceRun(createFleetOpsRun());
+    });
+
+    renderAtPath("/play");
+
+    const startingRevenue = gameStore.getState().run.lifetimeRevenue;
+
+    fireEvent.click(screen.getByRole("button", { name: /cast line/i }));
+
+    expect(gameStore.getState().run.lifetimeRevenue).toBeGreaterThan(
+      startingRevenue,
+    );
+  });
+
+  it("keeps a fleet refuel control reachable after Fleet Ops unlocks", async () => {
+    const user = userEvent.setup();
+    const run = createFleetOpsRun();
+
+    act(() => {
+      gameStore.getState().replaceRun({
+        ...run,
+        boats: {
+          ...run.boats,
+          workSkiff: {
+            ...run.boats.workSkiff,
+            fuelCurrent: 4,
+            status: "docked",
+          },
+        },
+      });
+    });
+
+    renderAtPath("/play");
+
+    const panel = screen.getByTestId("boat-card-workSkiff");
+    const refuelButton = within(panel).getByRole("button", {
+      name: /top up fuel/i,
+    });
+
+    expect(refuelButton).toBeEnabled();
+
+    await user.click(refuelButton);
+
+    expect(gameStore.getState().run.boats.workSkiff.fuelCurrent).toBe(
+      gameStore.getState().run.boats.workSkiff.fuelCap,
+    );
+  });
+
   it("renders processing controls and contract actions once processing unlocks", async () => {
     const user = userEvent.setup();
 
