@@ -125,12 +125,26 @@ export function GameShell({
               {leftColumn}
             </div>
           )}
-          <div
-            aria-label="active panel column"
-            className="flex min-w-0 flex-col gap-4"
-          >
-            {centerColumn}
-          </div>
+          {isCompact ? (
+            <div
+              className="mx-auto w-full max-w-[56rem]"
+              data-testid="game-shell-compact-lane"
+            >
+              <div
+                aria-label="active panel column"
+                className="flex min-w-0 flex-col gap-4 sm:gap-3"
+              >
+                {centerColumn}
+              </div>
+            </div>
+          ) : (
+            <div
+              aria-label="active panel column"
+              className="flex min-w-0 flex-col gap-4"
+            >
+              {centerColumn}
+            </div>
+          )}
           {isCompact ? null : (
             <div
               aria-label="operations column"

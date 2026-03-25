@@ -128,6 +128,7 @@ describe("play shell compact reveal", () => {
 
     expect(screen.getByText("Center column")).toBeInTheDocument();
     expect(screen.getByLabelText("active panel column")).toBeInTheDocument();
+    expect(screen.getByTestId("game-shell-compact-lane")).toBeInTheDocument();
     expect(screen.queryByText("Left column")).not.toBeInTheDocument();
     expect(screen.queryByText("Right column")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("primary column")).not.toBeInTheDocument();
@@ -245,6 +246,10 @@ describe("play shell compact reveal", () => {
 
     expect(screen.queryByTestId("play-shell-onboarding")).not.toBeInTheDocument();
     expect(screen.getByTestId("early-hud")).toBeInTheDocument();
+    expect(screen.getByTestId("early-hud")).toHaveAttribute(
+      "data-visible-card-count",
+      "1",
+    );
     expect(screen.getByTestId("early-cash")).toBeInTheDocument();
     expect(screen.queryByTestId("early-nearby-fish")).not.toBeInTheDocument();
     expect(screen.queryByTestId("early-cast-cooldown")).not.toBeInTheDocument();
@@ -258,10 +263,36 @@ describe("play shell compact reveal", () => {
     render(<EarlyHud run={run} />);
 
     expect(screen.getByTestId("early-hud")).toBeInTheDocument();
+    expect(screen.getByTestId("early-hud")).toHaveAttribute(
+      "data-visible-card-count",
+      "4",
+    );
     expect(screen.getByTestId("early-cash")).toBeInTheDocument();
     expect(screen.getByTestId("early-nearby-fish")).toBeInTheDocument();
     expect(screen.getByTestId("early-cast-cooldown")).toBeInTheDocument();
     expect(screen.getByTestId("early-stock-pressure")).toBeInTheDocument();
+  });
+
+  it("shows the compact reading-the-rail explainer as soon as stock pressure is unlocked", () => {
+    const stockPressureState = createVisibilityScenario((starterRun) => ({
+      ...starterRun,
+      lifetimeFishLanded: 8,
+    }));
+
+    expect(
+      selectPlayShellVisibility(stockPressureState.run, stockPressureState.meta),
+    ).toMatchObject({
+      shellMode: "compact",
+      showShopRevealCue: false,
+      showReadingTheRailCard: true,
+    });
+
+    renderPlayPage(stockPressureState.run, stockPressureState.meta);
+
+    expect(
+      screen.getByTestId("play-shell-compact-reading-the-rail"),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("shop-reveal-cue")).not.toBeInTheDocument();
   });
 
   it("hides compact cast-button stock and cooldown detail until those discovery steps are visible", () => {

@@ -8,6 +8,7 @@ type MeterCardProps = HTMLAttributes<HTMLDivElement> & {
   label: string;
   value: string;
   detail: string;
+  density?: "compact" | "full";
   progress?: number;
   progressTestId?: string;
 };
@@ -16,6 +17,7 @@ export function MeterCard({
   label,
   value,
   detail,
+  density = "full",
   progress,
   progressTestId,
   className,
@@ -26,16 +28,28 @@ export function MeterCard({
 
   return (
     <Card
-      className={clsx("space-y-3", className)}
+      className={clsx(
+        density === "compact" ? "space-y-2.5 p-4" : "space-y-3",
+        className,
+      )}
       {...props}
     >
-      <div className="space-y-2">
+      <div className={density === "compact" ? "space-y-1.5" : "space-y-2"}>
         <p className="text-xs uppercase tracking-[0.16em] text-accent">
           {label}
         </p>
-        <p className="font-heading text-2xl text-text">{value}</p>
+        <p
+          className={clsx(
+            "font-heading text-text",
+            density === "compact" ? "text-[1.75rem]" : "text-2xl",
+          )}
+        >
+          {value}
+        </p>
       </div>
-      <p className="text-sm text-text-muted">{detail}</p>
+      <p className={density === "compact" ? "text-[0.8125rem] text-text-muted" : "text-sm text-text-muted"}>
+        {detail}
+      </p>
       {clampedProgress !== undefined ? (
         <div className="h-2 rounded-full bg-surface/70">
           <div

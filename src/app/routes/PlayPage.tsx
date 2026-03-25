@@ -129,7 +129,12 @@ export default function PlayPage() {
       {shellVisibility.showProgressSummary ? (
         <ProgressSummary summary={progressSummary} />
       ) : null}
-      {!isFleetOps ? <EarlyHud run={run} /> : null}
+      {!isFleetOps ? (
+        <EarlyHud
+          density="full"
+          run={run}
+        />
+      ) : null}
       <CastButton
         mode={shellVisibility.castButtonMode}
         showCooldownDetails={shellVisibility.earlyHudCards.cooldown}
@@ -206,6 +211,7 @@ export default function PlayPage() {
       {Object.values(shellVisibility.earlyHudCards).some(Boolean) ? (
         <div data-testid="play-shell-compact-early-hud">
           <EarlyHud
+            density="compact"
             run={run}
             visibleCards={shellVisibility.earlyHudCards}
           />

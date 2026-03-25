@@ -39,6 +39,16 @@ export function CastButton({
   const stockLabel = `${stockCurrent.toFixed(0)} / ${stockCap.toFixed(0)} fish nearby`;
   const shouldShowStockLabel = mode === "full" || showNearbyFish;
   const shouldShowCooldownDetails = mode === "full" || showCooldownDetails;
+  const introCopy =
+    mode === "compact"
+      ? "Work the line, watch the rail, and spend when the first upgrade feels worth it."
+      : "Cash lands immediately for now. Choose a steady cast or aim for a perfect pull.";
+  const feedbackCopy =
+    feedback === "Ready to cast."
+      ? mode === "compact"
+        ? `Pier cash: ${formatCash(cash)}.`
+        : `Start with a steady pull. Pier cash is ${formatCash(cash)}.`
+      : feedback;
 
   return (
     <Card className="space-y-4">
@@ -47,10 +57,7 @@ export function CastButton({
           Quiet Pier
         </p>
         <h2 className="font-heading text-2xl">Cast line</h2>
-        <p className="text-sm text-text-muted">
-          Cash lands immediately for now. Choose a steady cast or aim for a
-          perfect pull.
-        </p>
+        <p className="text-sm text-text-muted">{introCopy}</p>
       </div>
       <div className="space-y-2 rounded-2xl bg-surface-raised/50 px-4 py-3">
         <p className="font-heading text-xl text-text">{readout.status}</p>
@@ -78,9 +85,7 @@ export function CastButton({
         <Button onClick={handleCast}>Cast line</Button>
       </div>
       <p className="rounded-2xl bg-surface-raised px-4 py-3 text-sm text-text-muted">
-        {feedback === "Ready to cast."
-          ? `Start with a steady pull. Pier cash is ${formatCash(cash)}.`
-          : feedback}
+        {feedbackCopy}
       </p>
     </Card>
   );
