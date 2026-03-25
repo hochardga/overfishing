@@ -324,7 +324,7 @@ describe("selectPlayShellVisibility", () => {
       showRightColumnNotes: false,
       showShopRevealCue: false,
       showUpgradeShop: false,
-      showReadingTheRailCard: false,
+      showReadingTheRailCard: true,
       earlyHudCards: {
         cash: true,
         nearbyFish: true,

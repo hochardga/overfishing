@@ -255,6 +255,24 @@ export type UpgradeShopItem = {
   available: boolean;
 };
 
+export type UpgradeShopOnDeckItem = {
+  phaseLabel: string;
+  lockedCount: number;
+  teaser: string;
+};
+
+export type UpgradeShopSection =
+  | {
+      id: "availableNow" | "owned";
+      title: string;
+      items: UpgradeShopItem[];
+    }
+  | {
+      id: "onDeck";
+      title: string;
+      items: UpgradeShopOnDeckItem[];
+    };
+
 export type UpgradeShopState = {
   title: string;
   intro: string;
@@ -269,7 +287,60 @@ export type UpgradeShopState = {
   fishProgress: number;
   revenueProgress: number;
   items: UpgradeShopItem[];
+  sections: UpgradeShopSection[];
 };
+
+function buildUpgradeShopSections(
+  items: UpgradeShopItem[],
+): UpgradeShopSection[] {
+  const availableNow = items.filter((item) => item.available && !item.owned);
+  const owned = items.filter((item) => item.owned);
+  const onDeckByPhase = new Map<string, UpgradeShopItem[]>();
+
+  items
+    .filter((item) => !item.available && !item.owned)
+    .forEach((item) => {
+      const phaseItems = onDeckByPhase.get(item.phaseLabel) ?? [];
+
+      phaseItems.push(item);
+      onDeckByPhase.set(item.phaseLabel, phaseItems);
+    });
+
+  const sections: UpgradeShopSection[] = [];
+
+  if (availableNow.length > 0) {
+    sections.push({
+      id: "availableNow",
+      title: "Available now",
+      items: availableNow,
+    });
+  }
+
+  if (owned.length > 0) {
+    sections.push({
+      id: "owned",
+      title: "Owned already",
+      items: owned,
+    });
+  }
+
+  if (onDeckByPhase.size > 0) {
+    sections.push({
+      id: "onDeck",
+      title: "On deck",
+      items: Array.from(onDeckByPhase.entries()).map(([phaseLabel, phaseItems]) => ({
+        phaseLabel,
+        lockedCount: phaseItems.length,
+        teaser:
+          phaseItems.length === 1
+            ? phaseItems[0]?.label ?? phaseLabel
+            : `${phaseItems[0]?.label ?? phaseLabel} plus ${phaseItems.length - 1} more`,
+      })),
+    });
+  }
+
+  return sections;
+}
 
 export function selectUpgradeShopState(run: RunState): UpgradeShopState {
   const nextPhaseRule = phaseUnlockRules.find(
@@ -298,6 +369,7 @@ export function selectUpgradeShopState(run: RunState): UpgradeShopState {
 
       return left.cost - right.cost;
     });
+  const sections = buildUpgradeShopSections(items);
 
   if (!nextPhaseRule) {
     return {
@@ -315,6 +387,7 @@ export function selectUpgradeShopState(run: RunState): UpgradeShopState {
       fishProgress: 1,
       revenueProgress: 1,
       items,
+      sections,
     };
   }
 
@@ -358,6 +431,7 @@ export function selectUpgradeShopState(run: RunState): UpgradeShopState {
     fishProgress,
     revenueProgress,
     items,
+    sections,
   };
 }
 

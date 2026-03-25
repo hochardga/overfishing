@@ -8,6 +8,7 @@ import {
 } from "@/lib/simulation/selectors";
 
 type EarlyHudProps = {
+  density?: "compact" | "full";
   run: RunState;
   visibleCards?: PlayShellVisibilityModel["earlyHudCards"];
 };
@@ -20,14 +21,27 @@ const defaultVisibleCards: PlayShellVisibilityModel["earlyHudCards"] = {
 };
 
 export function EarlyHud({
+  density = "full",
   run,
   visibleCards = defaultVisibleCards,
 }: EarlyHudProps) {
   const hud = selectEarlyHudState(run);
+  const visibleCardCount = Object.values(visibleCards).filter(Boolean).length;
+  const effectiveDensity =
+    density === "compact" || visibleCardCount < 4 ? "compact" : "full";
+  const gridClassName =
+    visibleCardCount <= 1
+      ? "grid-cols-1"
+      : visibleCardCount === 2
+        ? "grid-cols-1 md:grid-cols-2"
+        : visibleCardCount === 3
+          ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
+          : "grid-cols-1 md:grid-cols-2 xl:grid-cols-4";
 
   return (
     <Card
-      className="space-y-4"
+      className={effectiveDensity === "compact" ? "space-y-3.5" : "space-y-4"}
+      data-visible-card-count={visibleCardCount}
       data-testid="early-hud"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -43,11 +57,12 @@ export function EarlyHud({
           Warm shell
         </p>
       </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className={`grid gap-3 ${gridClassName}`}>
         {visibleCards.cash ? (
           <MeterCard
             data-testid="early-cash"
             detail={hud.cash.detail}
+            density={effectiveDensity}
             label={hud.cash.label}
             value={hud.cash.value}
           />
@@ -56,6 +71,7 @@ export function EarlyHud({
           <MeterCard
             data-testid="early-nearby-fish"
             detail={hud.nearbyFish.detail}
+            density={effectiveDensity}
             label={hud.nearbyFish.label}
             progress={hud.nearbyFish.progress}
             progressTestId="early-nearby-fish-meter"
@@ -66,6 +82,7 @@ export function EarlyHud({
           <MeterCard
             data-testid="early-cast-cooldown"
             detail={hud.cooldown.detail}
+            density={effectiveDensity}
             label={hud.cooldown.label}
             progress={hud.cooldown.progress}
             progressTestId="early-cast-cooldown-meter"
@@ -76,6 +93,7 @@ export function EarlyHud({
           <MeterCard
             data-testid="early-stock-pressure"
             detail={hud.stockPressure.detail}
+            density={effectiveDensity}
             label={hud.stockPressure.label}
             progress={hud.stockPressure.progress}
             progressTestId="early-stock-pressure-meter"
