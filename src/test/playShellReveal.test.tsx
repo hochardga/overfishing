@@ -1,8 +1,11 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, render, screen, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { afterEach, describe, expect, it } from "vitest";
 
+import PlayPage from "@/app/routes/PlayPage";
 import { EarlyHud } from "@/components/game/EarlyHud";
 import { GameShell } from "@/components/game/GameShell";
+import { gameStore } from "@/lib/simulation/gameStore";
 import { syncDiscoveryState } from "@/lib/simulation/reducers/discovery";
 import { selectPlayShellVisibility } from "@/lib/simulation/selectors";
 import {
@@ -60,6 +63,51 @@ function PlayShellVisibilityHarness({
     </div>
   );
 }
+
+const baseGameStoreState = gameStore.getState();
+
+function createVisibilityScenario(
+  buildRun: (starterRun: RunState) => RunState,
+): {
+  meta: MetaProgressState;
+  run: RunState;
+} {
+  const meta = createDefaultMetaProgress();
+
+  return syncDiscoveryState(buildRun(createStarterRun(meta)), meta);
+}
+
+function renderPlayPage(run: RunState, meta: MetaProgressState) {
+  act(() => {
+    gameStore.setState({
+      run,
+      meta,
+      hydrated: true,
+      recoveryMessage: null,
+      startSimulationLoop: () => {},
+      stopSimulationLoop: () => {},
+    });
+  });
+
+  return render(
+    <MemoryRouter>
+      <PlayPage />
+    </MemoryRouter>,
+  );
+}
+
+afterEach(() => {
+  act(() => {
+    gameStore.setState({
+      run: baseGameStoreState.run,
+      meta: baseGameStoreState.meta,
+      hydrated: baseGameStoreState.hydrated,
+      recoveryMessage: baseGameStoreState.recoveryMessage,
+      startSimulationLoop: baseGameStoreState.startSimulationLoop,
+      stopSimulationLoop: baseGameStoreState.stopSimulationLoop,
+    });
+  });
+});
 
 describe("play shell compact reveal", () => {
   it("renders only the center column when the shell is in compact mode", () => {
@@ -185,5 +233,99 @@ describe("play shell compact reveal", () => {
     expect(screen.getByTestId("early-nearby-fish")).toBeInTheDocument();
     expect(screen.getByTestId("early-cast-cooldown")).toBeInTheDocument();
     expect(screen.getByTestId("early-stock-pressure")).toBeInTheDocument();
+  });
+
+  it("hides compact cast-button stock and cooldown detail until those discovery steps are visible", () => {
+    const firstCastState = createVisibilityScenario((starterRun) => ({
+      ...starterRun,
+      lifetimeFishLanded: 1,
+    }));
+
+    renderPlayPage(firstCastState.run, firstCastState.meta);
+
+    const castButton = within(screen.getByTestId("play-shell-cast-button"));
+
+    expect(
+      castButton.getByText(/cast now|perfect window/i),
+    ).toBeInTheDocument();
+    expect(
+      castButton.queryByText(/fish nearby/i),
+    ).not.toBeInTheDocument();
+    expect(
+      castButton.queryByText(/wait for the sweet spot|sweet spot is live/i),
+    ).not.toBeInTheDocument();
+    expect(
+      castButton.queryByTestId("cast-button-cycle-bar"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows compact shop cues in the center column and limits the compact shop to quiet-pier upgrades", () => {
+    const compactShopState = createVisibilityScenario((starterRun) => ({
+      ...starterRun,
+      cash: 100,
+      lifetimeFishLanded: 8,
+      lifetimeRevenue: 32,
+    }));
+
+    expect(
+      selectPlayShellVisibility(compactShopState.run, compactShopState.meta),
+    ).toMatchObject({
+      shellMode: "compact",
+      showShopRevealCue: true,
+      showReadingTheRailCard: true,
+    });
+
+    renderPlayPage(compactShopState.run, compactShopState.meta);
+
+    expect(screen.getByTestId("play-shell-compact-reading-the-rail")).toBeInTheDocument();
+    expect(screen.getByTestId("shop-reveal-cue")).toBeInTheDocument();
+    expect(screen.getByTestId("play-shell-compact-upgrade-shop")).toBeInTheDocument();
+    expect(
+      Array.from(
+        screen.getByTestId("play-shell-compact-stack").children,
+        (child) => child.getAttribute("data-testid"),
+      ),
+    ).toEqual([
+      "play-shell-compact-early-hud",
+      "play-shell-compact-reading-the-rail",
+      "play-shell-cast-button",
+      "shop-reveal-cue",
+      "play-shell-compact-upgrade-shop",
+    ]);
+
+    const shop = within(screen.getByTestId("upgrade-shop"));
+    expect(
+      shop.getByRole("button", { name: /buy better bait/i }),
+    ).toBeInTheDocument();
+    expect(
+      shop.getByRole("button", { name: /buy salted lunch/i }),
+    ).toBeInTheDocument();
+    expect(
+      shop.queryByText(/locked until skiff operator/i),
+    ).not.toBeInTheDocument();
+    expect(shop.queryByText(/next phase/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the compact reading-the-rail explainer hidden until the visibility model enables it", () => {
+    const preShopState = createVisibilityScenario((starterRun) => ({
+      ...starterRun,
+      lifetimeFishLanded: 3,
+      lifetimeRevenue: 12,
+    }));
+
+    expect(
+      selectPlayShellVisibility(preShopState.run, preShopState.meta),
+    ).toMatchObject({
+      shellMode: "compact",
+      showShopRevealCue: false,
+      showReadingTheRailCard: false,
+    });
+
+    renderPlayPage(preShopState.run, preShopState.meta);
+
+    expect(screen.queryByTestId("shop-reveal-cue")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("play-shell-compact-reading-the-rail"),
+    ).not.toBeInTheDocument();
   });
 });

@@ -129,7 +129,11 @@ export default function PlayPage() {
         <ProgressSummary summary={progressSummary} />
       ) : null}
       {!isFleetOps ? <EarlyHud run={run} /> : null}
-      <CastButton />
+      <CastButton
+        mode={shellVisibility.castButtonMode}
+        showCooldownDetails={shellVisibility.earlyHudCards.cooldown}
+        showNearbyFish={shellVisibility.earlyHudCards.nearbyFish}
+      />
       {isFleetOps ? <FleetPanel run={run} /> : null}
       {isFleetOps ? <MaintenancePanel run={run} /> : null}
       {!isFleetOps && run.unlocks.phasesSeen.includes("skiffOperator") ? (
@@ -158,17 +162,24 @@ export default function PlayPage() {
             : "Manual casts resolve directly into cash for now, so the reward lands immediately and the dock stays easy to read."}
         </p>
       </Card>
-      <UpgradeShop run={run} />
+      {shellVisibility.showUpgradeShop ? (
+        <UpgradeShop
+          mode="full"
+          run={run}
+        />
+      ) : null}
       {isFleetOps || hasProcessing ? <ContractBoard run={run} /> : null}
-      <Card className="space-y-3">
-        <h2 className="font-heading text-2xl">Reading the rail</h2>
-        <p className="text-sm text-text-muted">
-          Cash lands immediately, nearby stock shows how many fish are left in
-          Pier Cove, cooldown tells you when the line settles, and stock
-          pressure explains why the pull gets slower or richer as the cove
-          thins out.
-        </p>
-      </Card>
+      {shellVisibility.showReadingTheRailCard ? (
+        <Card className="space-y-3">
+          <h2 className="font-heading text-2xl">Reading the rail</h2>
+          <p className="text-sm text-text-muted">
+            Cash lands immediately, nearby stock shows how many fish are left in
+            Pier Cove, cooldown tells you when the line settles, and stock
+            pressure explains why the pull gets slower or richer as the cove
+            thins out.
+          </p>
+        </Card>
+      ) : null}
     </>
   );
 
@@ -199,7 +210,7 @@ export default function PlayPage() {
           />
         </div>
       ) : null}
-      {!shellVisibility.showOnboardingCard ? (
+      {shellVisibility.showReadingTheRailCard ? (
         <Card
           className="space-y-3"
           data-testid="play-shell-compact-reading-the-rail"
@@ -214,7 +225,11 @@ export default function PlayPage() {
         </Card>
       ) : null}
       <div data-testid="play-shell-cast-button">
-        <CastButton />
+        <CastButton
+          mode={shellVisibility.castButtonMode}
+          showCooldownDetails={shellVisibility.earlyHudCards.cooldown}
+          showNearbyFish={shellVisibility.earlyHudCards.nearbyFish}
+        />
       </div>
       {shellVisibility.showShopRevealCue ? (
         <Card
@@ -230,7 +245,10 @@ export default function PlayPage() {
       ) : null}
       {shellVisibility.showShopRevealCue ? (
         <div data-testid="play-shell-compact-upgrade-shop">
-          <UpgradeShop run={run} />
+          <UpgradeShop
+            mode="compact"
+            run={run}
+          />
         </div>
       ) : null}
     </div>

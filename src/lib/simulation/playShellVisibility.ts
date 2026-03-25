@@ -67,7 +67,9 @@ export function selectPlayShellVisibility(
     showRightColumnNotes: shellMode === "full",
     showShopRevealCue: isCompact && hasDiscoveryStep(run, "shopVisible"),
     showUpgradeShop: shellMode === "full",
-    showReadingTheRailCard: shellMode === "full",
+    showReadingTheRailCard:
+      shellMode === "full" ||
+      (isCompact && hasDiscoveryStep(run, "shopVisible")),
     earlyHudCards: {
       cash: showCashCard,
       nearbyFish: showNearbyFishCard,
