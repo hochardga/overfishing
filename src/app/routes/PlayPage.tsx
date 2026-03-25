@@ -7,6 +7,7 @@ import { GameShell } from "@/components/game/GameShell";
 import { PhaseUnlockModal } from "@/components/game/PhaseUnlockModal";
 import { ProgressSummary } from "@/components/game/ProgressSummary";
 import { AlertBanner } from "@/components/ui/AlertBanner";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { FleetPanel } from "@/features/fleet/FleetPanel";
 import { MaintenancePanel } from "@/features/fleet/MaintenancePanel";
@@ -254,25 +255,42 @@ export default function PlayPage() {
     </div>
   );
 
+  const recoveryOverlay = recoveryMessage ? (
+    <section data-testid="game-shell-recovery">
+      <Card className="space-y-4">
+        <div className="space-y-1">
+          <p className="text-xs uppercase tracking-[0.16em] text-error">
+            Recovery
+          </p>
+          <h1 className="font-heading text-3xl text-text">Save recovery</h1>
+          <p className="text-sm text-text-muted">{recoveryMessage}</p>
+        </div>
+        <Button
+          onClick={() => {
+            resetRun();
+            dismissRecoveryMessage();
+          }}
+        >
+          Start fresh run
+        </Button>
+      </Card>
+    </section>
+  ) : null;
+
   return (
     <>
       <GameShell
         errorActionLabel="Start fresh run"
         errorBody={recoveryMessage ?? undefined}
         layoutMode={shellVisibility.shellMode}
-        onErrorAction={() => {
-          resetRun();
-          dismissRecoveryMessage();
-        }}
         screenState={
           shouldRestoreFromSave
             ? "loading"
-            : recoveryMessage
-              ? "error"
-              : "ready"
+            : "ready"
         }
         showStatusRail={shellVisibility.showStatusRail}
         tone={run.uiTone}
+        overlay={recoveryOverlay}
         leftColumn={fullLeftColumn}
         centerColumn={
           shellVisibility.shellMode === "compact"

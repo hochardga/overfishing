@@ -64,6 +64,23 @@ function createCompactShopRun(): RunState {
   };
 }
 
+function createLegacySavePayload() {
+  const save = createFreshSave();
+  const run = save.run!;
+  const legacyUnlocks = Object.fromEntries(
+    Object.entries(run.unlocks).filter(([key]) => key !== "discoverySteps"),
+  );
+
+  return {
+    ...save,
+    run: {
+      ...run,
+      cash: 42,
+      unlocks: legacyUnlocks,
+    },
+  };
+}
+
 function createDocksideGearRun(): RunState {
   const starterRun = createStarterRun();
 
@@ -393,7 +410,32 @@ describe("App bootstrap", () => {
     });
   });
 
-  it("shows a recovery prompt when the stored save is malformed", async () => {
+  it("restores a migrated legacy save directly into the full shell", async () => {
+    localStorage.setItem(
+      SAVE_STORAGE_KEY,
+      JSON.stringify(createLegacySavePayload()),
+    );
+    act(() => {
+      gameStore.setState({
+        hydrated: false,
+        recoveryMessage: null,
+        run: createStarterRun(),
+      });
+    });
+
+    renderAtPath("/play");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("status-rail")).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("primary column")).toBeInTheDocument();
+    expect(screen.getByLabelText("operations column")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("play-shell-compact-stack"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders a recovered malformed save in the full shell while surfacing a fresh-run action", async () => {
     localStorage.setItem(SAVE_STORAGE_KEY, "{ definitely broken json");
     act(() => {
       gameStore.setState({
@@ -406,8 +448,11 @@ describe("App bootstrap", () => {
     renderAtPath("/play");
 
     await waitFor(() => {
-      expect(screen.getByTestId("game-shell-recovery")).toBeInTheDocument();
+      expect(screen.getByTestId("status-rail")).toBeInTheDocument();
     });
+    expect(screen.getByLabelText("primary column")).toBeInTheDocument();
+    expect(screen.getByLabelText("operations column")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /save recovery/i })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /start fresh run/i }),
     ).toBeInTheDocument();
@@ -431,11 +476,13 @@ describe("App bootstrap", () => {
       screen.getByRole("button", { name: /buy better bait/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
+      screen.queryByText(
         /skiff operator unlocks at 60 lifetime fish landed and \$250 lifetime revenue/i,
       ),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText(/locked until skiff operator/i).length).toBeGreaterThan(0);
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/locked until skiff operator/i),
+    ).not.toBeInTheDocument();
     expect(
       Array.from(
         screen.getByTestId("play-shell-compact-stack").children,
@@ -450,7 +497,7 @@ describe("App bootstrap", () => {
     ]);
   });
 
-  it("keeps next-phase progress anchored to the slower unlock requirement", () => {
+  it("keeps the next-phase progress panel hidden while the shell is still compact", () => {
     act(() => {
       const state = gameStore.getState();
       state.replaceRun({
@@ -465,9 +512,13 @@ describe("App bootstrap", () => {
     const shop = screen.getByTestId("upgrade-shop");
     const progressFill = shop.querySelector('div[style*="width"]');
 
-    expect(progressFill).not.toBeNull();
-    expect(progressFill).toHaveStyle({ width: "40%" });
-    expect(screen.getByText(/the dock is still warming up/i)).toBeInTheDocument();
+    expect(progressFill).toBeNull();
+    expect(
+      within(shop).queryByText(/the dock is still warming up/i),
+    ).not.toBeInTheDocument();
+    expect(
+      within(shop).queryByText(/skiff operator unlocks at/i),
+    ).not.toBeInTheDocument();
   });
 
   it("switches the next-phase panel to a terminal message once all configured unlocks are active", () => {
@@ -771,6 +822,36 @@ describe("App bootstrap", () => {
     expect(gameStore.getState().run.unlocks.dismissedPhaseModalIds).toContain(
       "skiffOperator",
     );
+  });
+
+  it("keeps the phase unlock modal visible when shell expansion and a phase transition happen in the same update", () => {
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun({
+        ...createStarterRun(),
+        lifetimeFishLanded: 59,
+        lifetimeRevenue: 249,
+      }, state.meta);
+    });
+
+    renderAtPath("/play");
+
+    act(() => {
+      const state = gameStore.getState();
+      state.replaceRun({
+        ...state.run,
+        lifetimeFishLanded: 60,
+        lifetimeRevenue: 250,
+      }, state.meta);
+    });
+
+    expect(screen.getByTestId("phase-unlock-modal")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /skiff operator unlocked/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("status-rail")).toBeInTheDocument();
+    expect(screen.getByLabelText("primary column")).toBeInTheDocument();
+    expect(screen.getByLabelText("operations column")).toBeInTheDocument();
   });
 
   it("shifts the play shell into fleet operations once Fleet Ops is unlocked", () => {

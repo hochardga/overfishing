@@ -197,6 +197,35 @@ describe("play shell compact reveal", () => {
     expect(fullFromSkiffOperator.showReadingTheRailCard).toBe(true);
   });
 
+  it("renders the full shell as soon as skiff operator is reached without a quiet-pier upgrade", () => {
+    const meta = createDefaultMetaProgress();
+    const starterRun = createStarterRun(meta);
+    const { run, meta: syncedMeta } = syncDiscoveryState(
+      {
+        ...starterRun,
+        phase: "skiffOperator",
+        lifetimeFishLanded: 60,
+        lifetimeRevenue: 250,
+        unlocks: {
+          ...starterRun.unlocks,
+          phasesSeen: ["quietPier", "skiffOperator"],
+        },
+      },
+      meta,
+    );
+
+    renderPlayPage(run, syncedMeta);
+
+    expect(screen.queryByTestId("play-shell-compact-stack")).not.toBeInTheDocument();
+    expect(screen.getByTestId("status-rail")).toBeInTheDocument();
+    expect(screen.getByLabelText("primary column")).toBeInTheDocument();
+    expect(screen.getByLabelText("operations column")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /skiff operator upgrades/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/reading the rail/i).length).toBeGreaterThan(0);
+  });
+
   it("renders only the discovered early-hud cards after the first successful cast", () => {
     const meta = createDefaultMetaProgress();
     const { meta: syncedMeta, run } = syncDiscoveryState(

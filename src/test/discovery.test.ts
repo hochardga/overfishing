@@ -350,7 +350,7 @@ describe("selectPlayShellVisibility", () => {
       showRightColumnNotes: false,
       showShopRevealCue: true,
       showUpgradeShop: false,
-      showReadingTheRailCard: false,
+      showReadingTheRailCard: true,
       earlyHudCards: {
         cash: true,
         nearbyFish: true,
@@ -462,6 +462,34 @@ describe("discovery persistence", () => {
       expandedShellDiscoverySteps,
     );
     expect(result.save.meta.unlockFlags).toContain("quietPierIntroSeen");
+  });
+
+  it("selects the full shell immediately for migrated and recovered saves", () => {
+    localStorage.setItem(
+      SAVE_STORAGE_KEY,
+      JSON.stringify(createLegacySavePayload()),
+    );
+    const migrated = loadOrCreateSaveResult();
+
+    localStorage.setItem(SAVE_STORAGE_KEY, "{ definitely broken json");
+    const recovered = loadOrCreateSaveResult();
+
+    expect(
+      selectPlayShellVisibility(migrated.save.run!, migrated.save.meta),
+    ).toMatchObject({
+      shellMode: "full",
+      showStatusRail: true,
+      showUpgradeShop: true,
+      showReadingTheRailCard: true,
+    });
+    expect(
+      selectPlayShellVisibility(recovered.save.run!, recovered.save.meta),
+    ).toMatchObject({
+      shellMode: "full",
+      showStatusRail: true,
+      showUpgradeShop: true,
+      showReadingTheRailCard: true,
+    });
   });
 
   it("recovers malformed saves into an expanded-shell run with the intro retired", () => {

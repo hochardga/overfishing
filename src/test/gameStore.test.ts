@@ -12,7 +12,10 @@ import {
   type RunState,
 } from "@/lib/storage/saveSchema";
 import { createGameStore } from "@/lib/simulation/gameStore";
-import { selectStatusRailItems } from "@/lib/simulation/selectors";
+import {
+  selectPlayShellVisibility,
+  selectStatusRailItems,
+} from "@/lib/simulation/selectors";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function withDiscoverySteps(
@@ -215,6 +218,32 @@ describe("game store", () => {
     ]);
 
     reloadedStore.getState().stopSimulationLoop();
+  });
+
+  it("keeps the compact intro retired after resetting from a fail-safe recovery", () => {
+    localStorage.setItem("overfishing-save", "{ definitely broken json");
+
+    const store = createGameStore();
+    store.getState().initialize();
+
+    expect(store.getState().recoveryMessage).toMatch(/fresh run/i);
+    expect(readDiscoverySteps(store.getState().run)).toEqual(
+      expandedShellDiscoverySteps,
+    );
+    expect(store.getState().meta.unlockFlags).toContain("quietPierIntroSeen");
+
+    store.getState().resetRun();
+
+    expect(store.getState().recoveryMessage).toBeNull();
+    expect(store.getState().meta.unlockFlags).toContain("quietPierIntroSeen");
+    expect(readDiscoverySteps(store.getState().run)).toEqual([]);
+    expect(
+      selectPlayShellVisibility(store.getState().run, store.getState().meta)
+        .shellMode,
+    ).toBe("full");
+    expect(loadOrCreateSave().meta.unlockFlags).toContain("quietPierIntroSeen");
+
+    store.getState().stopSimulationLoop();
   });
 
   it("keeps provided carryover meta when external replacement and initialization pass run and meta together", () => {
