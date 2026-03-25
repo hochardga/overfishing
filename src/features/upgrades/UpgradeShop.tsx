@@ -21,6 +21,62 @@ export function UpgradeShop({
       ? shop.items.filter((item) => item.available)
       : shop.items;
 
+  const renderUpgradeCard = (
+    item: (typeof items)[number],
+    options: {
+      muted?: boolean;
+      showLockedPhaseLabel?: boolean;
+    } = {},
+  ) => (
+    <div
+      key={item.id}
+      className={`rounded-2xl px-4 py-4 ${
+        options.muted ? "bg-surface-raised/60" : "bg-surface-raised"
+      }`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h3 className="font-heading text-xl text-text">{item.label}</h3>
+          <p className="text-sm text-text-muted">{item.description}</p>
+          {options.showLockedPhaseLabel && !item.available ? (
+            <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
+              Locked until {item.phaseLabel}
+            </p>
+          ) : null}
+        </div>
+        <p className="rounded-full bg-surface px-3 py-1 text-xs uppercase tracking-[0.16em] text-secondary">
+          ${item.cost}
+        </p>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <p
+          className={`text-xs uppercase tracking-[0.16em] ${
+            options.muted ? "text-secondary" : "text-accent"
+          }`}
+        >
+          {item.owned
+            ? "Owned"
+            : !item.available
+              ? "Locked"
+              : item.affordable
+                ? "Ready"
+                : "Need cash"}
+        </p>
+        <Button
+          disabled={item.owned || !item.affordable || !item.available}
+          onClick={() => purchaseUpgrade(item.id)}
+          variant={item.owned ? "ghost" : "secondary"}
+        >
+          {item.owned
+            ? "Owned"
+            : !item.available
+              ? "Locked"
+              : `Buy ${item.label}`}
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <Card
       className="space-y-4"
@@ -60,51 +116,65 @@ export function UpgradeShop({
         </div>
       ) : null}
 
-      <div className="space-y-3">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className="rounded-2xl bg-surface-raised px-4 py-4"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="space-y-1">
-                <h3 className="font-heading text-xl text-text">{item.label}</h3>
-                <p className="text-sm text-text-muted">{item.description}</p>
-                {mode === "full" && !item.available ? (
-                  <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
-                    Locked until {item.phaseLabel}
-                  </p>
-                ) : null}
-              </div>
-              <p className="rounded-full bg-surface px-3 py-1 text-xs uppercase tracking-[0.16em] text-secondary">
-                ${item.cost}
-              </p>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs uppercase tracking-[0.16em] text-accent">
-                {item.owned
-                  ? "Owned"
-                  : !item.available
-                    ? "Locked"
-                    : item.affordable
-                      ? "Ready"
-                      : "Need cash"}
-              </p>
-              <Button
-                disabled={item.owned || !item.affordable || !item.available}
-                onClick={() => purchaseUpgrade(item.id)}
-                variant={item.owned ? "ghost" : "secondary"}
+      {mode === "compact" ? (
+        <div className="space-y-3">
+          {items.map((item) => renderUpgradeCard(item))}
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {shop.sections.map((section) =>
+            section.id === "onDeck" ? (
+              <section
+                className="space-y-3"
+                key={section.id}
               >
-                {item.owned
-                  ? "Owned"
-                  : !item.available
-                    ? "Locked"
-                    : `Buy ${item.label}`}
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
+                <h3 className="font-heading text-xl text-text">
+                  {section.title}
+                </h3>
+                <div className="space-y-3">
+                  {section.items.map((item) => (
+                    <div
+                      className="rounded-2xl border border-border/40 bg-surface-raised/70 px-4 py-4"
+                      key={item.phaseLabel}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <h4 className="font-heading text-lg text-text">
+                            {item.phaseLabel}
+                          </h4>
+                          <p className="text-sm text-text-muted">
+                            {item.teaser}
+                          </p>
+                        </div>
+                        <p className="rounded-full bg-surface px-3 py-1 text-xs uppercase tracking-[0.16em] text-secondary">
+                          {item.lockedCount} waiting
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : (
+              <section
+                className="space-y-3"
+                key={section.id}
+              >
+                <h3 className="font-heading text-xl text-text">
+                  {section.title}
+                </h3>
+                <div className="space-y-3">
+                  {section.items.map((item) =>
+                    renderUpgradeCard(item, {
+                      muted: section.id === "owned",
+                      showLockedPhaseLabel: false,
+                    }),
+                  )}
+                </div>
+              </section>
+            ),
+          )}
+        </div>
+      )}
     </Card>
   );
 }

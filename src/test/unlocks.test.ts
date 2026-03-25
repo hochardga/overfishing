@@ -241,4 +241,45 @@ describe("upgrade purchases and unlock checks", () => {
       "Buy Rusty Skiff to unlock Dockside Gear.",
     );
   });
+
+  it("groups upgrade shop output into available, owned, and on-deck sections", () => {
+    const starterRun = createStarterRun();
+    const run: RunState = {
+      ...starterRun,
+      phase: "skiffOperator",
+      cash: 400,
+      lifetimeFishLanded: 80,
+      lifetimeRevenue: 320,
+      unlocks: {
+        ...starterRun.unlocks,
+        upgrades: ["betterBait", "harborMap"],
+        phasesSeen: ["quietPier", "skiffOperator"],
+      },
+    };
+
+    const shop = selectUpgradeShopState(run);
+
+    expect(shop.sections.map((section) => section.id)).toEqual([
+      "availableNow",
+      "owned",
+      "onDeck",
+    ]);
+    expect(shop.sections[0]?.items.map((item) => item.label)).toEqual(
+      expect.arrayContaining(["Hand Reel", "Rusty Skiff"]),
+    );
+    expect(shop.sections[1]?.items.map((item) => item.label)).toEqual(
+      expect.arrayContaining(["Better Bait", "Harbor Map"]),
+    );
+    expect(shop.sections[2]?.items).toEqual([
+      expect.objectContaining({
+        phaseLabel: "Dockside Gear",
+      }),
+      expect.objectContaining({
+        phaseLabel: "Fleet Ops",
+      }),
+      expect.objectContaining({
+        phaseLabel: "Processing & Contracts",
+      }),
+    ]);
+  });
 });

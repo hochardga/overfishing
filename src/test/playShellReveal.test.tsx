@@ -388,4 +388,37 @@ describe("play shell compact reveal", () => {
       screen.queryByTestId("play-shell-compact-reading-the-rail"),
     ).not.toBeInTheDocument();
   });
+
+  it("groups the first-upgrade full shell shop into immediate decisions and future preview", () => {
+    const meta = createDefaultMetaProgress();
+    const { run, meta: syncedMeta } = syncDiscoveryState(
+      {
+        ...createStarterRun(meta),
+        cash: 100,
+        lifetimeFishLanded: 8,
+        lifetimeRevenue: 32,
+        unlocks: {
+          ...createStarterRun(meta).unlocks,
+          upgrades: ["betterBait"],
+        },
+      },
+      meta,
+    );
+
+    renderPlayPage(run, syncedMeta);
+
+    expect(
+      screen.getByRole("heading", { name: /available now/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /owned already/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /on deck/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/better bait/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /harbor map/i }),
+    ).not.toBeInTheDocument();
+  });
 });
