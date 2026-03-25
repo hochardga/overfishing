@@ -258,19 +258,37 @@ describe("upgrade purchases and unlock checks", () => {
     };
 
     const shop = selectUpgradeShopState(run);
+    const availableNowSection = shop.sections.find(
+      (section) => section.id === "availableNow",
+    );
+    const ownedSection = shop.sections.find((section) => section.id === "owned");
+    const onDeckSection = shop.sections.find((section) => section.id === "onDeck");
 
     expect(shop.sections.map((section) => section.id)).toEqual([
       "availableNow",
       "owned",
       "onDeck",
     ]);
-    expect(shop.sections[0]?.items.map((item) => item.label)).toEqual(
+    expect(availableNowSection?.id).toBe("availableNow");
+    expect(ownedSection?.id).toBe("owned");
+    expect(onDeckSection?.id).toBe("onDeck");
+    expect(
+      availableNowSection && availableNowSection.id === "availableNow"
+        ? availableNowSection.items.map((item) => item.label)
+        : [],
+    ).toEqual(
       expect.arrayContaining(["Hand Reel", "Rusty Skiff"]),
     );
-    expect(shop.sections[1]?.items.map((item) => item.label)).toEqual(
+    expect(
+      ownedSection && ownedSection.id === "owned"
+        ? ownedSection.items.map((item) => item.label)
+        : [],
+    ).toEqual(
       expect.arrayContaining(["Better Bait", "Harbor Map"]),
     );
-    expect(shop.sections[2]?.items).toEqual([
+    expect(
+      onDeckSection && onDeckSection.id === "onDeck" ? onDeckSection.items : [],
+    ).toEqual([
       expect.objectContaining({
         phaseLabel: "Dockside Gear",
       }),
