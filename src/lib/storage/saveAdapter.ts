@@ -1,8 +1,8 @@
-import { normalizeSaveFileWithMetadata } from "@/lib/storage/migrations";
 import {
-  createFreshSave,
-  type SaveFile,
-} from "@/lib/storage/saveSchema";
+  createRecoveredSave,
+  normalizeSaveFileWithMetadata,
+} from "@/lib/storage/migrations";
+import { createFreshSave, type SaveFile } from "@/lib/storage/saveSchema";
 import { renewLicenseSaveData } from "@/lib/simulation/reducers/prestige";
 
 export const SAVE_STORAGE_KEY = "overfishing-save";
@@ -62,7 +62,7 @@ export function loadOrCreateSaveResult(): LoadOrCreateSaveResult {
     };
   } catch {
     return {
-      save: createAndPersistFreshSave(),
+      save: persistRawSave(createRecoveredSave()),
       status: "recovered",
       message:
         "We could not restore the previous harbor log. A fresh run is ready so you can get back on the water.",

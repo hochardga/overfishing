@@ -6,12 +6,20 @@ import { useGameStore } from "@/lib/simulation/gameStore";
 import { selectUpgradeShopState } from "@/lib/simulation/selectors";
 
 type UpgradeShopProps = {
+  mode?: "compact" | "full";
   run: RunState;
 };
 
-export function UpgradeShop({ run }: UpgradeShopProps) {
+export function UpgradeShop({
+  mode = "full",
+  run,
+}: UpgradeShopProps) {
   const purchaseUpgrade = useGameStore((state) => state.purchaseUpgrade);
   const shop = selectUpgradeShopState(run);
+  const items =
+    mode === "compact"
+      ? shop.items.filter((item) => item.available)
+      : shop.items;
 
   return (
     <Card
@@ -26,32 +34,34 @@ export function UpgradeShop({ run }: UpgradeShopProps) {
         <p className="text-sm text-text-muted">{shop.intro}</p>
       </div>
 
-      <div className="rounded-2xl bg-surface-raised px-4 py-3">
-        <p className="text-xs uppercase tracking-[0.16em] text-secondary">
-          {shop.phasePanelLabel}
-        </p>
-        <h3 className="mt-2 font-heading text-xl text-text">
-          {shop.nextPhaseLabel}
-        </h3>
-        <p className="mt-2 text-sm text-text-muted">
-          {shop.phaseRequirementText}
-        </p>
-        <p className="mt-1 text-xs text-text-muted">{shop.phaseProgressText}</p>
-        <div className="mt-3 h-2 rounded-full bg-surface/60">
-          <div
-            className="h-2 rounded-full bg-primary transition-[width] duration-300 ease-settled"
-            style={{
-              width: `${shop.phaseProgress * 100}%`,
-            }}
-          />
+      {mode === "full" ? (
+        <div className="rounded-2xl bg-surface-raised px-4 py-3">
+          <p className="text-xs uppercase tracking-[0.16em] text-secondary">
+            {shop.phasePanelLabel}
+          </p>
+          <h3 className="mt-2 font-heading text-xl text-text">
+            {shop.nextPhaseLabel}
+          </h3>
+          <p className="mt-2 text-sm text-text-muted">
+            {shop.phaseRequirementText}
+          </p>
+          <p className="mt-1 text-xs text-text-muted">{shop.phaseProgressText}</p>
+          <div className="mt-3 h-2 rounded-full bg-surface/60">
+            <div
+              className="h-2 rounded-full bg-primary transition-[width] duration-300 ease-settled"
+              style={{
+                width: `${shop.phaseProgress * 100}%`,
+              }}
+            />
+          </div>
+          <p className="mt-2 text-xs uppercase tracking-[0.16em] text-secondary">
+            {shop.phaseStatusText}
+          </p>
         </div>
-        <p className="mt-2 text-xs uppercase tracking-[0.16em] text-secondary">
-          {shop.phaseStatusText}
-        </p>
-      </div>
+      ) : null}
 
       <div className="space-y-3">
-        {shop.items.map((item) => (
+        {items.map((item) => (
           <div
             key={item.id}
             className="rounded-2xl bg-surface-raised px-4 py-4"
@@ -60,7 +70,7 @@ export function UpgradeShop({ run }: UpgradeShopProps) {
               <div className="space-y-1">
                 <h3 className="font-heading text-xl text-text">{item.label}</h3>
                 <p className="text-sm text-text-muted">{item.description}</p>
-                {!item.available ? (
+                {mode === "full" && !item.available ? (
                   <p className="text-xs uppercase tracking-[0.16em] text-text-muted">
                     Locked until {item.phaseLabel}
                   </p>

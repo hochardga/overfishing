@@ -2,13 +2,27 @@ import type { RunState } from "@/lib/storage/saveSchema";
 
 import { Card } from "@/components/ui/Card";
 import { MeterCard } from "@/components/ui/MeterCard";
-import { selectEarlyHudState } from "@/lib/simulation/selectors";
+import {
+  selectEarlyHudState,
+  type PlayShellVisibilityModel,
+} from "@/lib/simulation/selectors";
 
 type EarlyHudProps = {
   run: RunState;
+  visibleCards?: PlayShellVisibilityModel["earlyHudCards"];
 };
 
-export function EarlyHud({ run }: EarlyHudProps) {
+const defaultVisibleCards: PlayShellVisibilityModel["earlyHudCards"] = {
+  cash: true,
+  nearbyFish: true,
+  cooldown: true,
+  stockPressure: true,
+};
+
+export function EarlyHud({
+  run,
+  visibleCards = defaultVisibleCards,
+}: EarlyHudProps) {
   const hud = selectEarlyHudState(run);
 
   return (
@@ -30,36 +44,44 @@ export function EarlyHud({ run }: EarlyHudProps) {
         </p>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <MeterCard
-          data-testid="early-cash"
-          detail={hud.cash.detail}
-          label={hud.cash.label}
-          value={hud.cash.value}
-        />
-        <MeterCard
-          data-testid="early-nearby-fish"
-          detail={hud.nearbyFish.detail}
-          label={hud.nearbyFish.label}
-          progress={hud.nearbyFish.progress}
-          progressTestId="early-nearby-fish-meter"
-          value={hud.nearbyFish.value}
-        />
-        <MeterCard
-          data-testid="early-cast-cooldown"
-          detail={hud.cooldown.detail}
-          label={hud.cooldown.label}
-          progress={hud.cooldown.progress}
-          progressTestId="early-cast-cooldown-meter"
-          value={hud.cooldown.value}
-        />
-        <MeterCard
-          data-testid="early-stock-pressure"
-          detail={hud.stockPressure.detail}
-          label={hud.stockPressure.label}
-          progress={hud.stockPressure.progress}
-          progressTestId="early-stock-pressure-meter"
-          value={hud.stockPressure.value}
-        />
+        {visibleCards.cash ? (
+          <MeterCard
+            data-testid="early-cash"
+            detail={hud.cash.detail}
+            label={hud.cash.label}
+            value={hud.cash.value}
+          />
+        ) : null}
+        {visibleCards.nearbyFish ? (
+          <MeterCard
+            data-testid="early-nearby-fish"
+            detail={hud.nearbyFish.detail}
+            label={hud.nearbyFish.label}
+            progress={hud.nearbyFish.progress}
+            progressTestId="early-nearby-fish-meter"
+            value={hud.nearbyFish.value}
+          />
+        ) : null}
+        {visibleCards.cooldown ? (
+          <MeterCard
+            data-testid="early-cast-cooldown"
+            detail={hud.cooldown.detail}
+            label={hud.cooldown.label}
+            progress={hud.cooldown.progress}
+            progressTestId="early-cast-cooldown-meter"
+            value={hud.cooldown.value}
+          />
+        ) : null}
+        {visibleCards.stockPressure ? (
+          <MeterCard
+            data-testid="early-stock-pressure"
+            detail={hud.stockPressure.detail}
+            label={hud.stockPressure.label}
+            progress={hud.stockPressure.progress}
+            progressTestId="early-stock-pressure-meter"
+            value={hud.stockPressure.value}
+          />
+        ) : null}
       </div>
     </Card>
   );

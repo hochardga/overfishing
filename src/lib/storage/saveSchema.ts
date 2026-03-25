@@ -16,12 +16,28 @@ export const phaseIdSchema = z.enum([
 ]);
 
 export const uiToneSchema = z.enum(["cozy", "operational", "industrial"]);
-export const regionIdSchema = z.enum([
-  "pierCove",
-  "kelpBed",
-  "offshoreShelf",
-]);
+export const regionIdSchema = z.enum(["pierCove", "kelpBed", "offshoreShelf"]);
 export const uiScaleSchema = z.enum(["default", "large"]);
+export const discoveryStepSchema = z.enum([
+  "compactIntroEnabled",
+  "firstCastCompleted",
+  "cashVisible",
+  "nearbyFishVisible",
+  "cooldownVisible",
+  "stockPressureVisible",
+  "shopVisible",
+  "harborShellExpanded",
+]);
+
+export const expandedShellDiscoverySteps = [
+  "firstCastCompleted",
+  "cashVisible",
+  "nearbyFishVisible",
+  "cooldownVisible",
+  "stockPressureVisible",
+  "shopVisible",
+  "harborShellExpanded",
+] as const satisfies ReadonlyArray<z.infer<typeof discoveryStepSchema>>;
 
 export const settingsStateSchema = z.object({
   reducedMotion: z.boolean(),
@@ -137,6 +153,7 @@ export const unlockStateSchema = z.object({
   phasesSeen: z.array(phaseIdSchema),
   pendingPhaseModalIds: z.array(phaseIdSchema).default([]),
   dismissedPhaseModalIds: z.array(phaseIdSchema).default([]),
+  discoverySteps: z.array(discoveryStepSchema).default([]),
 });
 
 export const notificationStateSchema = z.object({
@@ -180,6 +197,7 @@ export type PhaseId = z.infer<typeof phaseIdSchema>;
 export type RegionId = z.infer<typeof regionIdSchema>;
 export type SettingsState = z.infer<typeof settingsStateSchema>;
 export type MetaProgressState = z.infer<typeof metaProgressStateSchema>;
+export type DiscoveryStep = z.infer<typeof discoveryStepSchema>;
 export type RunState = z.infer<typeof runStateSchema>;
 export type SaveFile = z.infer<typeof saveFileSchema>;
 
@@ -205,6 +223,11 @@ export function createStarterRun(
   meta: MetaProgressState = createDefaultMetaProgress(),
 ): RunState {
   const quietPier = getPhaseDefinition("quietPier");
+  const shouldSeedCompactIntro =
+    !meta.unlockFlags.includes("quietPierIntroSeen") &&
+    meta.renewals === 0 &&
+    meta.startingCashBonus === 0 &&
+    meta.manualCatchBonus === 0;
   const regions = applyRegionsStockPressure(
     Object.fromEntries(
       Object.values(regionDefinitions).map((region) => [
@@ -262,14 +285,13 @@ export function createStarterRun(
       phasesSeen: ["quietPier"],
       pendingPhaseModalIds: [],
       dismissedPhaseModalIds: [],
+      discoverySteps: shouldSeedCompactIntro ? ["compactIntroEnabled"] : [],
     },
     notifications: [],
   };
 }
 
-export function createFreshSave(
-  overrides: Partial<SaveFile> = {},
-): SaveFile {
+export function createFreshSave(overrides: Partial<SaveFile> = {}): SaveFile {
   const now = new Date().toISOString();
   const defaultMeta = createDefaultMetaProgress();
 

@@ -7,6 +7,8 @@ import { StatusRail } from "@/components/ui/StatusRail";
 type GameShellProps = {
   tone?: "cozy" | "operational" | "industrial";
   screenState?: "ready" | "loading" | "error";
+  layoutMode?: "full" | "compact";
+  showStatusRail?: boolean;
   statusItems: {
     label: string;
     value: string;
@@ -25,6 +27,8 @@ type GameShellProps = {
 export function GameShell({
   tone = "cozy",
   screenState = "ready",
+  layoutMode = "full",
+  showStatusRail = true,
   statusItems,
   overlay,
   errorBody,
@@ -35,6 +39,8 @@ export function GameShell({
   rightColumn,
   onErrorAction,
 }: GameShellProps) {
+  const isCompact = layoutMode === "compact";
+
   if (screenState === "loading") {
     return (
       <main className="min-h-screen bg-background px-6 py-8 text-text">
@@ -96,33 +102,43 @@ export function GameShell({
   return (
     <main className="min-h-screen bg-background px-4 py-6 text-text sm:px-6 sm:py-8">
       <div className={`mx-auto flex max-w-shell flex-col ${tone === "cozy" ? "gap-6" : "gap-5"}`}>
-        <StatusRail
-          items={statusItems}
-          tone={tone}
-        />
+        {showStatusRail ? (
+          <StatusRail
+            items={statusItems}
+            tone={tone}
+          />
+        ) : null}
         {overlay}
         <section
-          className={`grid ${tone === "cozy" ? "gap-4" : "gap-3"} min-[960px]:grid-cols-[1.05fr_1.35fr_1fr]`}
+          className={
+            isCompact
+              ? "flex flex-col"
+              : `grid ${tone === "cozy" ? "gap-4" : "gap-3"} min-[960px]:grid-cols-[1.05fr_1.35fr_1fr]`
+          }
           data-testid="game-shell-grid"
         >
-          <div
-            aria-label="primary column"
-            className="flex min-w-0 flex-col gap-4"
-          >
-            {leftColumn}
-          </div>
+          {isCompact ? null : (
+            <div
+              aria-label="primary column"
+              className="flex min-w-0 flex-col gap-4"
+            >
+              {leftColumn}
+            </div>
+          )}
           <div
             aria-label="active panel column"
             className="flex min-w-0 flex-col gap-4"
           >
             {centerColumn}
           </div>
-          <div
-            aria-label="operations column"
-            className="flex min-w-0 flex-col gap-4"
-          >
-            {rightColumn}
-          </div>
+          {isCompact ? null : (
+            <div
+              aria-label="operations column"
+              className="flex min-w-0 flex-col gap-4"
+            >
+              {rightColumn}
+            </div>
+          )}
         </section>
       </div>
     </main>
